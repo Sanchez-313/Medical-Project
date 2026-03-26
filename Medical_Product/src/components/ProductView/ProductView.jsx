@@ -10,26 +10,30 @@ import {
   ShieldCheck,
   RotateCcw,
   X,
-  ChevronRight,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate, useOutletContext } from "react-router-dom";
 import { FaShoppingBag } from "react-icons/fa";
 
-// Assets
-import Paracetamol from "../../assets/Engmedicines/Paracetamol.png";
-import Oramin_G from "../../assets/Engmedicines/Oramin-G.png";
-import IVYTUS_Cough_Syrup from "../../assets/Engmedicines/IVYTUS_Cough_Syrup.png";
-
-const ProductView = ({ isOpen, onClose, product }) => {
+const ProductView = ({ isOpen, onClose, product, onAddToCart }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const outletContext = useOutletContext();
+  const addToCart = onAddToCart || outletContext?.addToCart;
+  const toggleFavorite = outletContext?.toggleFavorite;
+  const isFavorite = outletContext?.isFavorite;
+  const showToast = outletContext?.showToast;
+  const getProductStock = outletContext?.getProductStock;
   const [quantity, setQuantity] = useState(1);
   const [isZoomed, setIsZoomed] = useState(false);
-
-  const relatedProducts = [
-    { id: 1, name: "Paracetamol", price: "18,000", image: Paracetamol },
-    { id: 2, name: "Oramin-G", price: "12,500", image: Oramin_G },
-    { id: 3, name: "IVYTUS Syrup", price: "5,000", image: IVYTUS_Cough_Syrup },
-    { id: 4, name: "Paracetamol", price: "8,500", image: Paracetamol },
-  ];
+  const [liveStock, setLiveStock] = useState(null);
+  const [isLoadingStock, setIsLoadingStock] = useState(false);
+  const closeProductView = () => {
+    if (onClose) {
+      onClose();
+      return;
+    }
+    navigate("/");
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -42,6 +46,44 @@ const ProductView = ({ isOpen, onClose, product }) => {
     };
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const productId = Number(product?.id);
+    if (!Number.isInteger(productId) || productId <= 0) {
+      setLiveStock(null);
+      setIsLoadingStock(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const loadStock = async () => {
+      setIsLoadingStock(true);
+      try {
+        const response = await fetch(
+          `http://localhost:8000/api/products/${productId}`,
+          { signal: controller.signal }
+        );
+        if (!response.ok) throw new Error("Failed to load stock");
+        const payload = await response.json();
+        const stockValue = payload?.data?.product?.stock;
+        setLiveStock(
+          Number.isFinite(Number(stockValue)) ? Number(stockValue) : null
+        );
+      } catch (error) {
+        if (error.name !== "AbortError") {
+          setLiveStock(null);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoadingStock(false);
+        }
+      }
+    };
+
+    loadStock();
+    return () => controller.abort();
+  }, [isOpen, product?.id]);
+
   if (!isOpen) return null;
 
   const {
@@ -49,11 +91,32 @@ const ProductView = ({ isOpen, onClose, product }) => {
     price = 25000,
     image = null,
     category = "Antibiotics",
-    description = "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s.",
+    stock = null,
+    description = "Product details are available in the label and packaging. Use as directed.",
+    id = name,
   } = product || {};
+  const contextStock = getProductStock?.(id);
+  const favoriteActive = Boolean(isFavorite?.(id));
+  const normalizedLiveStock = Number.isFinite(Number(liveStock))
+    ? Number(liveStock)
+    : null;
+  const normalizedContextStock = Number.isFinite(Number(contextStock))
+    ? Number(contextStock)
+    : null;
+  const normalizedPropStock = Number.isFinite(Number(stock))
+    ? Number(stock)
+    : null;
+
+  // If cart has reserved quantity, show that reduced stock immediately in UI.
+  const displayStock =
+    normalizedContextStock !== null && normalizedLiveStock !== null
+      ? Math.min(normalizedContextStock, normalizedLiveStock)
+      : normalizedContextStock ??
+        normalizedLiveStock ??
+        normalizedPropStock;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-300 pointer-events-none">
       <style>
         {`
           .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -61,11 +124,11 @@ const ProductView = ({ isOpen, onClose, product }) => {
         `}
       </style>
 
-      <div className="bg-white w-full max-w-[1050px] max-h-[94vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col md:flex-row animate-in zoom-in duration-300 relative">
+      <div className="bg-white w-full max-w-[1050px] max-h-[94vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col md:flex-row animate-in zoom-in duration-300 relative pointer-events-auto">
         
         {/* Close Button */}
         <button
-          onClick={onClose}
+          onClick={closeProductView}
           className="absolute right-6 top-6 z-[60] text-slate-400 hover:text-blue-600 transition-all p-2 bg-white/90 backdrop-blur-md rounded-full shadow-md hover:rotate-90"
         >
           <X size={24} />
@@ -137,6 +200,26 @@ const ProductView = ({ isOpen, onClose, product }) => {
               </div>
               <span>Ready for delivery in Mandalay</span>
             </div>
+            <p className="mt-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Stock:{" "}
+              <span
+                className={
+                  isLoadingStock
+                    ? "text-slate-500"
+                    : displayStock > 0
+                      ? "text-emerald-600"
+                      : "text-red-500"
+                }
+              >
+                {isLoadingStock
+                  ? "Loading..."
+                  : displayStock === null
+                    ? "Unavailable"
+                    : displayStock > 0
+                      ? `${displayStock} available`
+                      : "Out of stock"}
+              </span>
+            </p>
           </div>
 
           {/* Description */}
@@ -160,65 +243,83 @@ const ProductView = ({ isOpen, onClose, product }) => {
                   {quantity}
                 </span>
                 <button
+                  disabled={displayStock !== null && quantity >= displayStock}
                   onClick={() => setQuantity(quantity + 1)}
-                  className="flex-1 flex justify-center text-slate-400 hover:text-blue-600 transition-colors"
+                  className="flex-1 flex justify-center text-slate-400 hover:text-blue-600 transition-colors disabled:cursor-not-allowed disabled:text-slate-300"
                 >
                   <Plus size={18} />
                 </button>
               </div>
-              <button className="h-14 w-14 bg-white border-2 border-slate-100 hover:border-red-500 text-slate-300 hover:text-red-500 rounded-2xl transition-all flex items-center justify-center group">
-                <Heart size={22} className="group-hover:fill-red-500" />
+              <button
+                type="button"
+                onClick={() => {
+                  const changedToFavorite = toggleFavorite?.({
+                    id,
+                    name,
+                    price,
+                    image,
+                    category,
+                  });
+                  if (showToast && typeof changedToFavorite === "boolean") {
+                    showToast(
+                      changedToFavorite
+                        ? "Added to favorites"
+                        : "Removed from favorites"
+                    );
+                  }
+                }}
+                className={`h-14 w-14 bg-white border-2 rounded-2xl transition-all flex items-center justify-center group ${
+                  favoriteActive
+                    ? "border-red-500 text-red-500"
+                    : "border-slate-100 text-slate-300 hover:border-red-500 hover:text-red-500"
+                }`}
+              >
+                <Heart
+                  size={22}
+                  className={favoriteActive ? "fill-red-500" : "group-hover:fill-red-500"}
+                />
               </button>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <button className="w-full h-14 bg-slate-900 text-white font-bold rounded-2xl hover:bg-slate-800 transition-all flex items-center justify-center gap-3 active:scale-95 shadow-xl shadow-slate-200">
+              <button
+                onClick={() => {
+                  if (addToCart) {
+                    const added = addToCart({ id, name, price, image, category }, quantity);
+                    if (typeof added === "number" && added > 0) {
+                      setQuantity(1);
+                    }
+                  }
+                }}
+                disabled={displayStock === 0}
+                className="w-full h-14 bg-slate-900 text-white font-bold rounded-2xl hover:bg-slate-800 transition-all flex items-center justify-center gap-3 active:scale-95 shadow-xl shadow-slate-200 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none"
+              >
                 <ShoppingCart size={20} /> Add to Cart
+              </button>
+              <button
+                onClick={() => {
+                  navigate("/cart", {
+                    state: {
+                      continueShoppingPath: location.pathname,
+                      continueShoppingScrollY: window.scrollY,
+                    },
+                  });
+                  closeProductView();
+                }}
+                className="w-full h-14 bg-white text-slate-800 font-bold rounded-2xl border border-slate-200 hover:border-blue-400 hover:text-blue-600 transition-all flex items-center justify-center gap-3 active:scale-95 shadow-sm"
+              >
+                View Cart
               </button>
               <Link
                 to="/checkoutpage"
                 onClick={() => {
-                  onClose();
+                  closeProductView();
                   window.scrollTo({ top: 0, behavior: "smooth" });
                 }}
                 className="w-full h-14 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 shadow-xl shadow-blue-100 transition-all flex items-center justify-center gap-3 active:scale-95"
               >
                 <FaShoppingBag size={18} /> Checkout
               </Link>
-            </div>
-          </div>
-
-          {/* Related Products */}
-          <div className="mb-10">
-            <div className="flex justify-between items-center mb-5">
-              <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-                Commonly Bought Together
-              </h4>
-              <button className="text-blue-600 text-[10px] font-black flex items-center gap-1 uppercase tracking-widest hover:underline">
-                View Alternatives <ChevronRight size={12} />
-              </button>
-            </div>
-            <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4">
-              {relatedProducts.map((item) => (
-                <div
-                  key={item.id}
-                  className="min-w-[150px] p-4 bg-slate-50 rounded-3xl border border-slate-100 hover:border-blue-300 hover:bg-white transition-all cursor-pointer group shadow-sm"
-                >
-                  <div className="h-24 bg-white rounded-2xl flex items-center justify-center mb-3 group-hover:scale-105 transition-transform p-2 border border-slate-50">
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      className="h-full w-full object-contain"
-                    />
-                  </div>
-                  <p className="text-[11px] font-black text-slate-800 truncate mb-1">
-                    {item.name}
-                  </p>
-                  <p className="text-[10px] font-bold text-blue-600">
-                    {item.price} MMK
-                  </p>
-                </div>
-              ))}
             </div>
           </div>
 

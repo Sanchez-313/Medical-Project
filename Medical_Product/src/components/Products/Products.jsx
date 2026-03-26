@@ -5,19 +5,38 @@ import Cards from "../Cards/Cards";
 import Button from "../Button/Button.jsx";
 import { Link } from "react-router-dom";
 
-const Products = () => {
+const Products = ({ addToCart, searchTerm = "" }) => {
   const categories = ["All", "EnglishMedicine", "MyanmarMedicine", "Equipment"];
   const [activeTab, setActivetab] = useState("All");
+  const normalizedSearch = searchTerm.trim().toLowerCase();
 
   let filteredItems =
     activeTab === "All"
       ? ProductsList
       : ProductsList.filter((item) => item.category === activeTab);
 
-  const renderCards = filteredItems.slice(0, 8).map((product) => {
+  if (normalizedSearch) {
+    filteredItems = filteredItems.filter((item) =>
+      item.name.toLowerCase().includes(normalizedSearch) ||
+      item.category.toLowerCase().includes(normalizedSearch)
+    );
+  }
+
+  const visibleItems = normalizedSearch ? filteredItems : filteredItems.slice(0, 8);
+
+  const renderCards = visibleItems.map((product) => {
     return (
-      <Cards key={product.id}
-        id={product.id} image={product.image} name={product.name} price={product.price} />
+      <Cards
+        key={product.id}
+        id={product.id}
+        image={product.image}
+        name={product.name}
+        price={product.price}
+        category={product.category}
+        stock={product.stock}
+        description={product.description}
+        onAddToCart={addToCart}
+      />
     );
   });
 
@@ -47,6 +66,12 @@ const Products = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-9 ml-12 mr-12 mt-20">
         {renderCards}
       </div>
+
+      {normalizedSearch && visibleItems.length === 0 ? (
+        <p className="mx-12 mt-8 text-center text-slate-500">
+          No products found for "{searchTerm}".
+        </p>
+      ) : null}
 
       <div className="my-15 mx-auto w-fit">
         <Link

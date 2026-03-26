@@ -1,0 +1,13 @@
+{
+  "name": "medical-project/php-backend",
+  "description": "Lightweight PHP API backend for Medical_Project frontend and admin dashboard",
+  "type": "project",
+  "require": {
+    "php": ">=8.1"
+  },
+  "autoload": {
+    "psr-4": {
+      "App\\": "src/"
+    }
+  }
+}

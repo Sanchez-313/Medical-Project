@@ -2,12 +2,90 @@ import React, { useState } from "react";
 import LoginImage from "../../assets/Engmedicines/Hero.png";
 import { EyeIcon, EyeOffIcon, X } from "lucide-react";
 import { FaFacebook, FaGoogle, FaTelegram, FaViber } from "react-icons/fa6";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 const SignUp = ({ isOpen, onClose }) => {
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+
+  const closeSignUp = () => {
+    if (onClose) {
+      onClose();
+      return;
+    }
+    navigate("/");
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+
+    const name = `${firstName} ${lastName}`.trim();
+    if (!name || !email || password.length < 6) {
+      setError("Please enter name, valid email, and password (min 6 chars).");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const res = await fetch("http://localhost:8000/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password, role: "customer" }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        setError(data?.message || "Registration failed.");
+        return;
+      }
+
+      if (data?.data?.token && data?.data?.user) {
+        localStorage.setItem("authToken", data.data.token);
+        localStorage.setItem("authUser", JSON.stringify(data.data.user));
+        window.dispatchEvent(new Event("auth-changed"));
+      }
+
+      setShowSuccessDialog(true);
+      setFirstName("");
+      setLastName("");
+      setEmail("");
+      setPassword("");
+    } catch {
+      setError("Cannot reach backend. Make sure API is running on localhost:8000.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (!isOpen) return null;
+
+  if (showSuccessDialog) {
+    return (
+      <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+        <div className="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-2xl">
+          <h3 className="text-2xl font-extrabold text-slate-800">Sign Up Successfully</h3>
+          <p className="mt-3 text-sm text-slate-600">
+            Your account has been created and signed in successfully.
+          </p>
+          <button
+            type="button"
+            onClick={closeSignUp}
+            className="mt-6 w-full rounded-xl bg-blue-600 py-3 font-bold uppercase tracking-widest text-white transition-all hover:bg-blue-700"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
@@ -15,7 +93,7 @@ const SignUp = ({ isOpen, onClose }) => {
       <div className="relative flex min-h-[600px] w-full max-w-5xl overflow-hidden rounded-3xl bg-white shadow-2xl animate-in fade-in zoom-in duration-300">
         {/* Close Button for Home Page Overlay */}
         <button
-          onClick={onClose}
+          onClick={closeSignUp}
           className="absolute left-4 top-4 z-[110] rounded-full bg-slate-100 p-2 text-slate-500 transition-colors hover:bg-red-100 hover:text-red-600 lg:hidden"
         >
           <X size={20} />
@@ -33,7 +111,7 @@ const SignUp = ({ isOpen, onClose }) => {
               </p>
             </div>
 
-            <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+            <form className="space-y-4" onSubmit={handleSubmit}>
               <div className="flex gap-4">
                 <div className="w-1/2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
@@ -42,6 +120,8 @@ const SignUp = ({ isOpen, onClose }) => {
                   <input
                     type="text"
                     placeholder="e.g. John"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
                     className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                   />
                 </div>
@@ -52,6 +132,8 @@ const SignUp = ({ isOpen, onClose }) => {
                   <input
                     type="text"
                     placeholder="e.g. Doe"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
                     className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                   />
                 </div>
@@ -64,6 +146,8 @@ const SignUp = ({ isOpen, onClose }) => {
                 <input
                   type="email"
                   placeholder="name@healthcare.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                 />
               </div>
@@ -75,6 +159,8 @@ const SignUp = ({ isOpen, onClose }) => {
                 <input
                   type={showPassword ? "text" : "password"}
                   placeholder="Minimum 8 characters"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                 />
                 <button
@@ -90,8 +176,13 @@ const SignUp = ({ isOpen, onClose }) => {
                 </button>
               </div>
 
-              <button className="w-full rounded-xl bg-blue-600 py-3.5 font-bold text-white shadow-lg shadow-blue-200 transition-all hover:bg-blue-700 active:scale-95 uppercase tracking-widest">
-                Register Account
+              {error ? <p className="text-sm text-red-600">{error}</p> : null}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full rounded-xl bg-blue-600 py-3.5 font-bold text-white shadow-lg shadow-blue-200 transition-all hover:bg-blue-700 active:scale-95 uppercase tracking-widest disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loading ? "Registering..." : "Register Account"}
               </button>
             </form>
 
@@ -121,7 +212,7 @@ const SignUp = ({ isOpen, onClose }) => {
         >
           {/* Close button for desktop */}
           <button
-            onClick={onClose}
+            onClick={closeSignUp}
             className="absolute right-6 top-6 rounded-full bg-white/10 p-2 hover:bg-white/20 transition-colors"
           >
             <X size={20} />

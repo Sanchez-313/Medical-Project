@@ -1,12 +1,10 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   Users,
   UserCheck,
   Search,
   Plus,
-  Download,
-  History,
   LayoutDashboard,
   Package,
   Truck,
@@ -17,61 +15,30 @@ import {
   ChevronRight,
   X,
 } from "lucide-react";
-
 import Logo from "../../assets/Logo/logo.png";
+import { createCustomer, getCustomers } from "../../lib/api";
 
-// --- SUB-COMPONENT: ADD USER MODAL ---
-const AddUserModal = ({ isOpen, onClose, activeTab, onAddUser }) => {
-  const getDefaultRole = (tab) =>
-    tab === "staff" ? "Inventory Manager" : "Premium Customer";
+const navItems = [
+  { name: "ဒက်ရှ်ဘုတ်", path: "/overview", icon: <LayoutDashboard size={20} /> },
+  { name: "ကုန်ပစ္စည်းစာရင်း", path: "/inventory", icon: <Package size={20} /> },
+  { name: "ဖောက်သည်များ", path: "/customers", icon: <Users size={20} /> },
+  { name: "ပို့ဆောင်မှုများ", path: "/deliveries", icon: <Truck size={20} /> },
+  { name: "အစီရင်ခံစာများ", path: "/reports", icon: <BarChart3 size={20} /> },
+];
 
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    role: getDefaultRole(activeTab),
-  });
+const AddUserModal = ({ isOpen, onClose, activeTab, onAddUser, isSaving }) => {
+  const getDefaultRole = (tab) => (tab === "staff" ? "Inventory Manager" : "Standard Customer");
+  const [formData, setFormData] = useState({ name: "", email: "", role: getDefaultRole(activeTab) });
 
   useEffect(() => {
-    setFormData((prev) => ({
-      ...prev,
-      role: getDefaultRole(activeTab),
-    }));
-  }, [activeTab]);
+    setFormData({ name: "", email: "", role: getDefaultRole(activeTab) });
+  }, [activeTab, isOpen]);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-
-    const initial = formData.name
-      .split(" ")
-      .filter(Boolean)
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase();
-
-    const id =
-      activeTab === "staff"
-        ? `STAFF-${Math.floor(100 + Math.random() * 900)}`
-        : `MED-${Math.floor(1000 + Math.random() * 9000)}`;
-
-    const newUser = {
-      id,
-      name: formData.name,
-      initial: initial || "??",
-      type: activeTab,
-      role: formData.role,
-      email: formData.email,
-      activity: "Just now",
-      color:
-        activeTab === "staff"
-          ? "bg-orange-100 text-orange-600"
-          : "bg-blue-100 text-blue-600",
-    };
-
-    onAddUser(newUser);
-    setFormData({ name: "", email: "", role: getDefaultRole(activeTab) });
-    onClose();
+    await onAddUser(formData);
   };
 
   return (
@@ -80,7 +47,7 @@ const AddUserModal = ({ isOpen, onClose, activeTab, onAddUser }) => {
         <div className="p-8">
           <div className="flex justify-between items-start mb-6">
             <h3 className="text-2xl font-black text-slate-900 tracking-tight">
-              Add New {activeTab === "staff" ? "Staff Member" : "Customer"}
+              {activeTab === "staff" ? "ဝန်ထမ်းအသစ်ထည့်ရန်" : "ဖောက်သည်အသစ်ထည့်ရန်"}
             </h3>
             <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full text-slate-400">
               <X size={24} />
@@ -90,34 +57,34 @@ const AddUserModal = ({ isOpen, onClose, activeTab, onAddUser }) => {
           <form className="space-y-5" onSubmit={handleSubmit}>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Full Name</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">အမည်အပြည့်အစုံ</label>
                 <input
                   required
                   type="text"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
                   className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500/20"
-                  placeholder="e.g. Jane Doe"
+                  placeholder="ဥပမာ - မောင်မောင်"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Role / Tier</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">အခန်းကဏ္ဍ</label>
                 <select
                   value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, role: e.target.value }))}
                   className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3 text-sm outline-none appearance-none"
                 >
                   {activeTab === "staff" ? (
                     <>
-                      <option>Inventory Manager</option>
-                      <option>Logistics Lead</option>
-                      <option>Super Admin</option>
+                      <option value="Inventory Manager">ကုန်ပစ္စည်းမန်နေဂျာ</option>
+                      <option value="Logistics Lead">ပို့ဆောင်ရေးခေါင်းဆောင်</option>
+                      <option value="Super Admin">စူပါအက်မင်</option>
                     </>
                   ) : (
                     <>
-                      <option>Premium Customer</option>
-                      <option>Standard Customer</option>
-                      <option>Wholesale Partner</option>
+                      <option value="Standard Customer">ပုံမှန်ဖောက်သည်</option>
+                      <option value="Premium Customer">အထူးဖောက်သည်</option>
+                      <option value="Wholesale Partner">လက်ကားပူးပေါင်းသူ</option>
                     </>
                   )}
                 </select>
@@ -125,20 +92,32 @@ const AddUserModal = ({ isOpen, onClose, activeTab, onAddUser }) => {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Email Address</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">အီးမေးလ်လိပ်စာ</label>
               <input
                 required
                 type="email"
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
                 className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500/20"
-                placeholder="jane@example.com"
+                placeholder="name@example.com"
               />
             </div>
 
             <div className="pt-4 flex gap-3">
-              <button type="button" onClick={onClose} className="flex-1 px-6 py-3.5 rounded-2xl text-sm font-black text-slate-500 hover:bg-slate-50 transition-all">Cancel</button>
-              <button type="submit" className="flex-1 bg-blue-600 px-6 py-3.5 rounded-2xl text-sm font-black text-white shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all">Confirm Registration</button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 px-6 py-3.5 rounded-2xl text-sm font-black text-slate-500 hover:bg-slate-50 transition-all"
+              >
+                မလုပ်တော့ပါ
+              </button>
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="flex-1 bg-blue-600 px-6 py-3.5 rounded-2xl text-sm font-black text-white shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all disabled:opacity-50"
+              >
+                {isSaving ? "သိမ်းဆည်းနေသည်..." : "မှတ်ပုံတင်အတည်ပြုရန်"}
+              </button>
             </div>
           </form>
         </div>
@@ -147,56 +126,65 @@ const AddUserModal = ({ isOpen, onClose, activeTab, onAddUser }) => {
   );
 };
 
-// --- MAIN COMPONENT ---
 const CustomerManagement = () => {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState("customers");
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [userList, setUserList] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
   const itemsPerPage = 5;
 
-  const [userList, setUserList] = useState([
-    { id: "MED-9821", name: "John Doe", initial: "JD", type: "customers", role: "Premium Customer", email: "john.doe@medicare.com", activity: "2 hours ago", color: "bg-blue-100 text-blue-600" },
-    { id: "STAFF-001", name: "Admin Sarah", initial: "AS", type: "staff", role: "Super Admin", email: "sarah.w@inventory.med", activity: "Active Now", color: "bg-orange-100 text-orange-600" },
-    { id: "MED-4422", name: "Robert Brown", initial: "RB", type: "customers", role: "Standard Customer", email: "robert@email.com", activity: "Yesterday", color: "bg-gray-200 text-gray-600" },
-    { id: "STAFF-002", name: "Mark Smith", initial: "MS", type: "staff", role: "Logistics Manager", email: "mark.log@inventory.med", activity: "15 mins ago", color: "bg-green-100 text-green-700" },
-  ]);
+  async function loadUsers() {
+    setIsLoading(true);
+    setError("");
+    try {
+      const response = await getCustomers({ type: activeTab, search: searchQuery });
+      setUserList(response?.data?.customers || []);
+      setCurrentPage(1);
+    } catch (err) {
+      setError(err.message || "ဖောက်သည်များကို မရယူနိုင်ပါ။");
+      setUserList([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
-  const handleAddUser = (newUser) => setUserList((prev) => [...prev, newUser]);
+  useEffect(() => {
+    loadUsers();
+  }, [activeTab, searchQuery]);
 
-  const filteredUsers = useMemo(() => {
-    return userList.filter((user) => {
-      const matchesTab = user.type === activeTab;
-      const matchesSearch = user.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                            user.id.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesTab && matchesSearch;
-    });
-  }, [activeTab, searchQuery, userList]);
+  const filteredUsers = useMemo(() => userList, [userList]);
 
-  // Reset page when filtering
-  useEffect(() => setCurrentPage(1), [searchQuery, activeTab]);
-  
-
-  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage) || 1;
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / itemsPerPage));
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredUsers.slice(indexOfFirstItem, indexOfLastItem);
 
-  const handlePageChange = (pageNumber) => {
-    if (pageNumber >= 1 && pageNumber <= totalPages) setCurrentPage(pageNumber);
+  const handleAddUser = async (formData) => {
+    setIsSaving(true);
+    setError("");
+    try {
+      await createCustomer({
+        name: formData.name,
+        email: formData.email,
+        type: activeTab,
+        roleLabel: formData.role,
+      });
+      setIsModalOpen(false);
+      await loadUsers();
+    } catch (err) {
+      setError(err.message || "အသုံးပြုသူအသစ် မဖန်တီးနိုင်ပါ။");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const navItems = [
-    { name: "Dashboard", path: "/overview", icon: <LayoutDashboard size={20} /> },
-    { name: "ဆေးဝါးစာရင်း", path: "/inventory", icon: <Package size={20} /> },
-    { name: "ဖောက်သည်များ", path: "/customers", icon: <Users size={20} /> },
-    { name: "ပို့ဆောင်ရေး", path: "/deliveries", icon: <Truck size={20} /> },
-    { name: "အစီရင်ခံစာ", path: "/reports", icon: <BarChart3 size={20} /> },
-  ];
-
   return (
-    <div className="flex min-h-screen bg-[#f8fafc] font-sans text-slate-900">
+    <div className="flex min-h-screen bg-[#f8fafc] font-['Pyidaungsu','Noto_Sans_Myanmar','Myanmar_Text',sans-serif] text-slate-900">
       <aside className="w-64 border-r border-slate-200 bg-white flex flex-col sticky top-0 h-screen shrink-0">
         <div className="p-6 flex flex-col h-full">
           <div className="flex items-center gap-2 mb-10">
@@ -205,7 +193,15 @@ const CustomerManagement = () => {
           </div>
           <nav className="flex flex-col gap-2 flex-grow">
             {navItems.map((item) => (
-              <Link key={item.name} to={item.path} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${location.pathname === item.path ? "bg-blue-600 text-white shadow-md shadow-blue-200" : "text-slate-500 hover:bg-slate-50"}`}>
+              <Link
+                key={item.name}
+                to={item.path}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${
+                  location.pathname === item.path
+                    ? "bg-blue-600 text-white shadow-md shadow-blue-200"
+                    : "text-slate-500 hover:bg-slate-50"
+                }`}
+              >
                 {item.icon} {item.name}
               </Link>
             ))}
@@ -219,22 +215,38 @@ const CustomerManagement = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input
               className="w-full bg-white border border-slate-200 rounded-xl py-2.5 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-blue-500/10"
-              placeholder="Search by name or ID..."
+              placeholder="အမည်၊ ကုဒ်၊ အီးမေးလ်ဖြင့် ရှာဖွေရန်..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <button onClick={() => setIsModalOpen(true)} className="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-blue-700 shadow-md">
-            <Plus size={18} /> Add New User
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-blue-700 shadow-md"
+          >
+            <Plus size={18} /> အသုံးပြုသူအသစ်ထည့်ရန်
           </button>
         </header>
+
+        {error && (
+          <div className="mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm font-semibold">
+            {error}
+          </div>
+        )}
 
         <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden mb-8">
           <div className="flex border-b border-slate-100 px-8">
             {["customers", "staff"].map((tab) => (
-              <button key={tab} onClick={() => setActiveTab(tab)} className={`pb-4 pt-6 px-6 text-xs font-black uppercase tracking-widest transition-all border-b-2 ${activeTab === tab ? "border-blue-600 text-blue-600" : "border-transparent text-slate-400 hover:text-slate-600"}`}>
-                {tab === "customers" ? "Registered Customers" : "Staff Users"}
-                <span className="ml-2 px-2 py-0.5 rounded-full bg-slate-50 text-[10px]">{userList.filter((u) => u.type === tab).length}</span>
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`pb-4 pt-6 px-6 text-xs font-black uppercase tracking-widest transition-all border-b-2 ${
+                  activeTab === tab
+                    ? "border-blue-600 text-blue-600"
+                    : "border-transparent text-slate-400 hover:text-slate-600"
+                }`}
+              >
+                {tab === "customers" ? "မှတ်ပုံတင်ပြီး ဖောက်သည်များ" : "ဝန်ထမ်းအသုံးပြုသူများ"}
               </button>
             ))}
           </div>
@@ -243,57 +255,110 @@ const CustomerManagement = () => {
             <table className="w-full text-left">
               <thead>
                 <tr className="text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-50">
-                  <th className="px-8 py-5">User Details</th>
-                  <th className="px-6 py-5">Role</th>
-                  <th className="px-6 py-5">Contact</th>
-                  <th className="px-6 py-5">Activity</th>
-                  <th className="px-6 py-5 text-right">Actions</th>
+                  <th className="px-8 py-5">အသုံးပြုသူအသေးစိတ်</th>
+                  <th className="px-6 py-5">အခန်းကဏ္ဍ</th>
+                  <th className="px-6 py-5">ဆက်သွယ်ရန်</th>
+                  <th className="px-6 py-5">လှုပ်ရှားမှု</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {currentItems.length > 0 ? (
-                  currentItems.map((user) => (
-                    <tr key={user.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-8 py-5">
-                        <div className="flex items-center gap-4">
-                          <div className={`size-10 rounded-xl flex items-center justify-center font-black text-sm shadow-sm ${user.color}`}>{user.initial}</div>
-                          <div>
-                            <p className="text-sm font-black text-slate-800">{user.name}</p>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase">{user.id}</p>
+                {isLoading && (
+                  <tr>
+                    <td colSpan="4" className="px-8 py-20 text-center text-slate-400 font-bold">
+                      အသုံးပြုသူများကို ရယူနေသည်...
+                    </td>
+                  </tr>
+                )}
+                {!isLoading &&
+                  currentItems.map((user) => {
+                    const initials = String(user.name || "")
+                      .split(" ")
+                      .filter(Boolean)
+                      .map((part) => part[0])
+                      .join("")
+                      .slice(0, 2)
+                      .toUpperCase();
+                    const isStaff = user.type === "staff";
+                    return (
+                      <tr key={user.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-8 py-5">
+                          <div className="flex items-center gap-4">
+                            <div
+                              className={`size-10 rounded-xl flex items-center justify-center font-black text-sm shadow-sm ${
+                                isStaff ? "bg-orange-100 text-orange-600" : "bg-blue-100 text-blue-600"
+                              }`}
+                            >
+                              {initials || "??"}
+                            </div>
+                            <div>
+                              <p className="text-sm font-black text-slate-800">{user.name}</p>
+                              <p className="text-[10px] font-bold text-slate-400 uppercase">{user.code}</p>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-5">
-                        <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase ${user.type === "staff" ? "bg-orange-50 text-orange-600" : "bg-blue-50 text-blue-600"}`}>{user.role}</span>
-                      </td>
-                      <td className="px-6 py-5 text-xs font-bold text-slate-500">{user.email}</td>
-                      <td className="px-6 py-5 text-xs font-bold text-slate-500">{user.activity}</td>
-                      <td className="px-6 py-5 text-right font-black text-[10px] text-blue-600 uppercase cursor-pointer hover:underline">Manage</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr><td colSpan="5" className="px-8 py-20 text-center text-slate-400 font-bold">No results found matching "{searchQuery}"</td></tr>
+                        </td>
+                        <td className="px-6 py-5">
+                          <span
+                            className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase ${
+                              isStaff ? "bg-orange-50 text-orange-600" : "bg-blue-50 text-blue-600"
+                            }`}
+                          >
+                            {user.role_label}
+                          </span>
+                        </td>
+                        <td className="px-6 py-5 text-xs font-bold text-slate-500">{user.email}</td>
+                        <td className="px-6 py-5 text-xs font-bold text-slate-500">{user.last_activity || "-"}</td>
+                      </tr>
+                    );
+                  })}
+                {!isLoading && currentItems.length === 0 && (
+                  <tr>
+                    <td colSpan="4" className="px-8 py-20 text-center text-slate-400 font-bold">
+                      အသုံးပြုသူမတွေ့ပါ။
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>
           </div>
 
-          {/* PAGINATION FOOTER - FIXED VARIABLES HERE */}
           <div className="px-8 py-5 border-t border-slate-50 flex items-center justify-between bg-slate-50/20">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              Showing {filteredUsers.length > 0 ? indexOfFirstItem + 1 : 0} to {Math.min(indexOfLastItem, filteredUsers.length)} of {filteredUsers.length} entries
+              စုစုပေါင်း {filteredUsers.length} ခုအနက် {filteredUsers.length > 0 ? indexOfFirstItem + 1 : 0} မှ{" "}
+              {Math.min(indexOfLastItem, filteredUsers.length)} အထိ ပြထားသည်
             </p>
 
             <div className="flex items-center gap-1">
-              <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} className={`p-2 rounded-lg border border-slate-200 transition-all ${currentPage === 1 ? "opacity-20 cursor-not-allowed" : "hover:bg-white hover:text-blue-600 shadow-sm"}`}>
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className={`p-2 rounded-lg border border-slate-200 transition-all ${
+                  currentPage === 1 ? "opacity-20 cursor-not-allowed" : "hover:bg-white hover:text-blue-600 shadow-sm"
+                }`}
+              >
                 <ChevronLeft size={16} />
               </button>
               {[...Array(totalPages)].map((_, i) => (
-                <button key={i + 1} onClick={() => handlePageChange(i + 1)} className={`min-w-[36px] h-9 rounded-lg text-xs font-black border ${currentPage === i + 1 ? "bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-100" : "bg-white border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-600"}`}>
+                <button
+                  key={i + 1}
+                  onClick={() => setCurrentPage(i + 1)}
+                  className={`min-w-[36px] h-9 rounded-lg text-xs font-black border ${
+                    currentPage === i + 1
+                      ? "bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-100"
+                      : "bg-white border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-600"
+                  }`}
+                >
                   {i + 1}
                 </button>
               ))}
-              <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} className={`p-2 rounded-lg border border-slate-200 transition-all ${currentPage === totalPages ? "opacity-20 cursor-not-allowed" : "hover:bg-white hover:text-blue-600 shadow-sm"}`}>
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className={`p-2 rounded-lg border border-slate-200 transition-all ${
+                  currentPage === totalPages
+                    ? "opacity-20 cursor-not-allowed"
+                    : "hover:bg-white hover:text-blue-600 shadow-sm"
+                }`}
+              >
                 <ChevronRight size={16} />
               </button>
             </div>
@@ -301,18 +366,23 @@ const CustomerManagement = () => {
         </div>
 
         <div className="grid grid-cols-3 gap-6">
-          <StatCard icon={<UserCheck className="text-blue-500" />} label="Total Users" value={userList.length} color="bg-blue-50" />
-          <StatCard icon={<Activity className="text-emerald-500" />} label="Active Staff" value={userList.filter(u => u.type === "staff").length} color="bg-emerald-50" />
-          <StatCard icon={<ShieldCheck className="text-orange-500" />} label="System Health" value="Optimal" color="bg-orange-50" />
+          <StatCard icon={<UserCheck className="text-blue-500" />} label="အသုံးပြုသူစုစုပေါင်း" value={filteredUsers.length} color="bg-blue-50" />
+          <StatCard icon={<Activity className="text-emerald-500" />} label="လက်ရှိဝန်ထမ်း" value={activeTab === "staff" ? filteredUsers.length : "-"} color="bg-emerald-50" />
+          <StatCard icon={<ShieldCheck className="text-orange-500" />} label="စနစ်အခြေအနေ" value="ချိတ်ဆက်ပြီး" color="bg-orange-50" />
         </div>
       </main>
 
-      <AddUserModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} activeTab={activeTab} onAddUser={handleAddUser} />
+      <AddUserModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        activeTab={activeTab}
+        onAddUser={handleAddUser}
+        isSaving={isSaving}
+      />
     </div>
   );
 };
 
-// Helper component for bottom cards
 const StatCard = ({ icon, label, value, color }) => (
   <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-5">
     <div className={`size-14 rounded-2xl ${color} flex items-center justify-center shrink-0`}>{icon}</div>

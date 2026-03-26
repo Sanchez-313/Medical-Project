@@ -1,6 +1,6 @@
 import React from "react";
 // Assuming you rename your asset or use a medical-themed image
-import MedicalSupplies from "../../assets/Engmedicines/MedicineSupply.png"; 
+import MedicalSupplies from "../../assets/Engmedicines/MedicineSupply.png";
 import Button from "../Button/Button";
 
 const Hero = () => {
@@ -17,25 +17,30 @@ const Hero = () => {
             <span className="text-blue-600">Pharmacy</span> Inventory System
           </h1>
           <p className="text-zinc-600 md:text-lg text-md max-w-[530px] mt-5 mb-10">
-            Streamline your healthcare management with our integrated system for 
-            English and Myanmar medicines, surgical equipment, and real-time stock tracking.
+            Streamline your healthcare management with our integrated system for
+            English and Myanmar medicines, surgical equipment, and real-time
+            stock tracking.
           </p>
           <div className="flex gap-4">
-            <Button content="Manage Inventory" />
-            
+            <Button content="About Us" to="/aboutus" />
           </div>
         </div>
-        
+
         {/* Hero Image */}
         <div className="flex-1 brightness-105 mt-10 md:mt-0 hover:scale-105">
-          <img 
-            src={MedicalSupplies} 
-            alt="Medical Inventory and Equipment" 
+          <img
+            src={MedicalSupplies}
+            alt="Medical Inventory and Equipment"
             className="w-full h-auto drop-shadow-2xl"
           />
-          
         </div>
       </div>
+
+      <script src="https://elfsightcdn.com/platform.js" async></script>
+      <div
+        class="elfsight-app-ac7576c3-7a21-4c8e-aee0-dd7133ff3c51"
+        data-elfsight-app-lazy
+      ></div>
     </section>
   );
 };

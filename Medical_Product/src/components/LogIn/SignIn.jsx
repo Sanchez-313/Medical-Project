@@ -2,10 +2,60 @@ import React, { useState } from "react";
 import LoginImage from "../../assets/Engmedicines/FAQsection.jpg";
 import { FaFacebook, FaGoogle, FaTelegram, FaViber } from "react-icons/fa6";
 import { X } from "lucide-react"; 
-import { Link } from "react-router-dom"; // Use Link for internal routing
+import { Link, useNavigate } from "react-router-dom"; // Use Link for internal routing
 
 const SignIn = ({ isOpen, onClose }) => {
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const closeSignIn = () => {
+    if (onClose) {
+      onClose();
+      return;
+    }
+    navigate("/");
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+
+    if (!email.trim() || !password) {
+      setError("Please enter email and password.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const res = await fetch("http://localhost:8000/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        setError(data?.message || "Sign in failed.");
+        return;
+      }
+
+      if (data?.data?.token && data?.data?.user) {
+        localStorage.setItem("authToken", data.data.token);
+        localStorage.setItem("authUser", JSON.stringify(data.data.user));
+        window.dispatchEvent(new Event("auth-changed"));
+      }
+
+      closeSignIn();
+    } catch {
+      setError("Cannot reach backend. Make sure API is running on localhost:8000.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -15,7 +65,7 @@ const SignIn = ({ isOpen, onClose }) => {
         
         {/* MOBILE CLOSE BUTTON */}
         <button
-          onClick={onClose}
+          onClick={closeSignIn}
           className="absolute right-4 top-4 z-[1001] rounded-full bg-slate-100 p-2 text-slate-500 lg:hidden"
         >
           <X size={20} />
@@ -63,7 +113,7 @@ const SignIn = ({ isOpen, onClose }) => {
         <section className="flex w-full flex-col items-center justify-center p-8 lg:w-1/2">
           {/* DESKTOP CLOSE BUTTON */}
           <button
-            onClick={onClose}
+            onClick={closeSignIn}
             className="absolute right-6 top-6 hidden text-slate-300 hover:text-slate-600 lg:block transition-colors"
           >
             <X size={24} />
@@ -79,7 +129,7 @@ const SignIn = ({ isOpen, onClose }) => {
               </p>
             </header>
 
-            <form className="space-y-5" onSubmit={(e) => e.preventDefault()}>
+            <form className="space-y-5" onSubmit={handleSubmit}>
               <div>
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                   Patient Email / Health ID
@@ -87,6 +137,8 @@ const SignIn = ({ isOpen, onClose }) => {
                 <input
                   type="email"
                   placeholder="e.g. john.doe@healthcare.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-sm outline-none transition-all focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-50"
                 />
               </div>
@@ -103,6 +155,8 @@ const SignIn = ({ isOpen, onClose }) => {
                 <input
                   type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-sm outline-none transition-all focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-50"
                 />
                 <button
@@ -129,11 +183,14 @@ const SignIn = ({ isOpen, onClose }) => {
                 </label>
               </div>
 
+              {error ? <p className="text-sm text-red-600">{error}</p> : null}
+
               <button
                 type="submit"
-                className="w-full rounded-xl bg-blue-600 py-4 text-sm font-bold tracking-[0.15em] text-white shadow-xl shadow-blue-100 transition-all hover:bg-blue-700 hover:shadow-blue-200 active:scale-[0.98]"
+                disabled={loading}
+                className="w-full rounded-xl bg-blue-600 py-4 text-sm font-bold tracking-[0.15em] text-white shadow-xl shadow-blue-100 transition-all hover:bg-blue-700 hover:shadow-blue-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Secure LOGIN
+                {loading ? "Signing In..." : "Secure LOGIN"}
               </button>
             </form>
 

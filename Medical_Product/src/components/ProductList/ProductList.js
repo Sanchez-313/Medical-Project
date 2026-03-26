@@ -79,6 +79,80 @@ import Cevit from "../../assets/Engmedicines/Fever,Cough,Cold/Cevit.png"
 import Ensure_Gold_Strawberry_Flavor from "../../assets/Engmedicines/Fever,Cough,Cold/Ensure Gold 850 g (Strawberry Flavor).png"
 
 
+const normalizeName = (name) =>
+  String(name || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+const descriptionByName = {
+  "paracetamol": "Pain and fever relief for headaches, body aches, and colds. Use as directed on the label.",
+  "biogesic 500 mg": "Paracetamol for pain and fever relief. Use as directed on the label.",
+  "biogesic syrup 120mg": "Paracetamol syrup for children's pain and fever. Use as directed on the label.",
+  "param syrup": "Paracetamol syrup for children's pain and fever. Use as directed on the label.",
+  "progesic suspension 100ml": "Ibuprofen suspension for fever and pain in children. Use as directed on the label.",
+  "oramin g": "Vitamin C supplement to support immune health. Take as directed.",
+  "oramin g big": "Vitamin C supplement to support immune health. Take as directed.",
+  "cevit": "Vitamin C supplement to support immune health. Take as directed.",
+  "ivytus cough syrup": "Cough syrup for soothing throat irritation and cough. Use as directed.",
+  "ascoril syrup": "Cough syrup for cough with mucus. Use as directed.",
+  "solmux 500 mg": "Mucolytic to help loosen phlegm and ease productive cough. Use as directed.",
+  "woods peppermint antitussive": "Cough suppressant lozenge to relieve dry cough. Use as directed.",
+  "decolgen forte": "Cold and flu relief for congestion, fever, and aches. Use as directed.",
+  "mixagrip": "Cold and flu relief for fever, headache, and congestion. Use as directed.",
+  "paracap": "Paracetamol for pain and fever relief. Use as directed.",
+  "fluza 10 s": "Antihistamine for allergy or cold symptoms. Use as directed.",
+  "omega 3": "Omega-3 fish oil supplement to support heart health. Take as directed.",
+  "aska deep sea fish oil omega 3 1000 mg": "Omega-3 fish oil supplement to support heart health. Take as directed.",
+  "brand s essence of chicken": "Nutritional supplement for general vitality. Take as directed.",
+  "ensure gold 850 g strawberry flavor": "Nutritional drink powder to support daily nutrition. Use as directed.",
+  "oral rehydration salts ors": "Oral rehydration salts to help replace fluids and electrolytes. Use as directed.",
+  "keto shampoo 75ml": "Medicated anti-dandruff shampoo. Use as directed.",
+  "v rohto cool": "Eye drops for dryness and irritation relief. Use as directed.",
+  "new v rohto": "Eye drops for dryness and irritation relief. Use as directed.",
+  "dextracin eye ear drops": "Eye or ear drops for minor irritation. Use as directed.",
+  "hmancho": "Herbal throat remedy to soothe throat pain and support a clearer voice. Use as directed.",
+  "kyun ywet pone cough relief 45g": "Traditional cough relief remedy to soothe throat irritation and ease cough. Use as directed.",
+  "kyun ywet pone": "Traditional remedy used for cough and throat comfort. Use as directed.",
+  "maw akari herbal inhaler": "Herbal inhaler to help open nasal passages and refresh breathing. Use as directed.",
+  "maw ri ya man say": "Traditional herbal remedy for general wellness and energy support. Use as directed.",
+  "wone wann": "Traditional herbal oil/balm for soothing body aches and muscle tension. Use as directed.",
+  "wone wann turmeric honey tablets": "Herbal honey tablets to soothe throat irritation and support a clear voice. Use as directed.",
+  "sanda min vision supplement 40g": "Traditional supplement to support eye comfort and vision wellness. Use as directed.",
+  "sanda mon vision supplement": "Traditional supplement to support eye comfort and vision wellness. Use as directed.",
+  "a waiyar": "Traditional herbal remedy for general wellness and vitality. Use as directed.",
+  "latethonekaung": "Traditional herbal tonic for general vitality and stamina support. Use as directed.",
+  "aungtakhon": "Traditional herbal remedy used for body aches and general wellness. Use as directed.",
+  "aye nyein thida neurotonic 100g": "Traditional tonic used to support nerve comfort and relaxation. Use as directed.",
+  "dhoetkyaungthar": "Traditional herbal remedy for digestive comfort and general wellness. Use as directed.",
+  "monywar sa yar moe laxative 64g": "Traditional herbal laxative to support bowel regularity. Use as directed.",
+  "pan wutt hmone a pu nyein say bot": "Traditional herbal oil/balm to soothe aches and promote relaxation. Use as directed.",
+  "taung kyar pan ar toe say": "Traditional herbal remedy for muscle and joint comfort. Use as directed.",
+  "two snakes ring worm lotion 6 ml": "Topical lotion for skin irritation such as ringworm. Use as directed.",
+  "taunggyi mahar phyay say pink": "Traditional herbal remedy for general wellness and vitality. Use as directed.",
+  "kyarnayapunyeinsay": "Traditional herbal remedy to soothe aches and tension. Use as directed.",
+  "kyarnaymaharphyaysay": "Traditional herbal remedy for muscle and joint comfort. Use as directed.",
+  "shwe ohh wai ginshauk bot small": "Traditional herbal liquid for general wellness support. Use as directed.",
+  "3m aura 1870 mask": "Respiratory mask for filtration and protection. Use as directed.",
+  "infrared thermometer kf 32": "Non-contact thermometer for quick temperature checks. Follow device instructions.",
+  "precare blood pressure monitor arm": "Digital blood pressure monitor for home use. Follow device instructions.",
+  "life saving hands first aid kit large regular": "First aid kit for basic emergency care. Follow included guide.",
+  "life saving hands first aid kit small regular": "Compact first aid kit for basic emergency care. Follow included guide.",
+  "aquatabs water purification tablet": "Water purification tablets for safer drinking water. Use as directed.",
+  "bo ma pregnancy test strip": "Home pregnancy test strip. Follow the test instructions.",
+  "ankle support": "Ankle support for stability and mild injury support. Use as directed.",
+  "palm support": "Wrist or palm support for stability and comfort. Use as directed.",
+  "stethoscope pro": "Stethoscope for auscultation and clinical use. Use as directed.",
+  "checknow": "Medical testing device for home or clinical use. Follow instructions.",
+  "medicinebox": "Storage box for medicines and supplies.",
+};
+
+const descriptionByCategory = {
+  EnglishMedicine: "Common over-the-counter medicine. Use as directed on the label.",
+  MyanmarMedicine: "Traditional remedy. Follow label directions and consult a healthcare professional if unsure.",
+  Equipment: "Medical equipment for home or clinical use. Follow the included instructions.",
+};
+
 const products = [
   // Myanmmar Medicine
   { id: 1, name: 'Kyun Ywet Pone Cough Relief 45g', price: 2250, category: 'MyanmarMedicine', image: KyunYwetPoneCoughRelief },
@@ -111,11 +185,11 @@ const products = [
   { id: 26, name: 'Oramin-G (Big)', price: 23750, category: 'EnglishMedicine', image: Oramin_G },
   { id: 27, name: 'IVYTUS Cough Syrup', price: 6750, category: 'EnglishMedicine', image: IVYTUS_Cough_Syrup },
   { id: 28, name: 'Appeton Ms Teen', price: 6750, category: 'EnglishMedicine', image: Appeton },
-  { id: 29, name: 'Biogesic Syrup 120mg', price: 2250, category: 'EnglishMedicine', image: Biogesic_Syrup },
-  { id: 30, name: 'Calcivita', price: 4500, category: 'EnglishMedicine', image: Calcivita },
-  { id: 31, name: 'Ceelin Plus Chewables', price: 5000, category: 'EnglishMedicine', image: Ceelin_plus },
-  { id: 32, name: 'Ceelin Plus Syrup 120ml', price: 5500, category: 'EnglishMedicine', image: Ceelin_plus_Syrup },
-  { id: 33, name: 'Dimol Drops', price: 3000, category: 'EnglishMedicine', image: Dimol },
+  { id: 29, name: 'Biogesic Syrup 120mg', price: 7600, category: 'EnglishMedicine', image: Biogesic_Syrup },
+  { id: 30, name: 'Calcivita', price: 19000, category: 'EnglishMedicine', image: Calcivita },
+  { id: 31, name: 'Ceelin Plus Chewables', price: 3700, category: 'EnglishMedicine', image: Ceelin_plus },
+  { id: 32, name: 'Ceelin Plus Syrup 120ml', price: 11300, category: 'EnglishMedicine', image: Ceelin_plus_Syrup },
+  { id: 33, name: 'Dimol Drops', price: 5100, category: 'EnglishMedicine', image: Dimol },
   { id: 34, name: 'Fenza', price: 4000, category: 'EnglishMedicine', image: Fenza },
   { id: 35, name: 'Multi Kids Drops 30ml', price: 3500, category: 'EnglishMedicine', image: Multi_Kids_Drops },
   { id: 36, name: 'NatoCare', price: 6000, category: 'EnglishMedicine', image: Natocare },
@@ -124,12 +198,12 @@ const products = [
   { id: 39, name: 'One Q Gummy Calcium + Vitamin D', price: 7500, category: 'EnglishMedicine', image: One_Q_Gummy },
   { id: 40, name: 'Ovimin', price: 5000, category: 'EnglishMedicine', image: Ovimin },
   { id: 41, name: 'Param Syrup', price: 2250, category: 'EnglishMedicine', image: Param_Syrup },
-  { id: 42, name: 'PB Lora Syrup 60ml', price: 4500, category: 'EnglishMedicine', image: PB_Lora_Syrup },
+  { id: 42, name: 'PB Lora Syrup 60ml', price: 3600, category: 'EnglishMedicine', image: PB_Lora_Syrup },
   { id: 43, name: 'PN Kids Grow Gummies 60s', price: 8500, category: 'EnglishMedicine', image: PN_Kids_Grows_60s },
   { id: 44, name: 'PN Kids Memory Gummies 30s', price: 6500, category: 'EnglishMedicine', image: PN_Kids_Grows_30s },
   { id: 45, name: 'PN Kids Multivitamins Boys 30s', price: 6500, category: 'EnglishMedicine', image: PN_Kids_Boy },
   { id: 46, name: 'PN Kids Multivitamins Girls 30s', price: 6500, category: 'EnglishMedicine', image: PN_Kids_Girl },
-  { id: 47, name: 'Progesic Suspension 100ml', price: 5000, category: 'EnglishMedicine', image: Progesic },
+  { id: 47, name: 'Progesic Suspension 100ml', price: 9000, category: 'EnglishMedicine', image: Progesic },
   { id: 48, name: 'Keto Shampoo 75ml', price: 13500, category: 'EnglishMedicine', image: Keto_Shampoo_75ml },
   { id: 49, name: 'V.Rohto Cool', price: 15000, category: 'EnglishMedicine', image: V_Rohto_Cool },
   { id: 50, name: 'New V.Rohto', price: 13500, category: 'EnglishMedicine', image: New_V_Rohto },
@@ -165,7 +239,19 @@ const products = [
   { id: 75, name: "Sanda Mon Vision Supplement", price: 1750, category: 'MyanmarMedicine', image: SandaMon },
   { id: 76, name: "Shwe Ohh Wai Ginshauk Bot (Small)", price: 2100, category: 'MyanmarMedicine', image: ShweOhhWaiGinshauk },
   { id: 77, name: "Wone Wann ပျားနနွင်း Turmeric Honey Tablets", price: 2000, category: 'MyanmarMedicine', image: WoneWannပျားနနွင် },
-
+  { id: 78, name: "Oral Rehydration Salts (ORS)", price: 1200, category: 'EnglishMedicine', image: Cevit },
 ]
 
-export default products;
+const productsWithDescriptions = products.map((product) => {
+  const normalizedName = normalizeName(product.name);
+  const description =
+    product.description ||
+    descriptionByName[normalizedName] ||
+    descriptionByCategory[product.category] ||
+    "Product details available on request. Use as directed.";
+  return { ...product, description };
+});
+
+export default productsWithDescriptions;
+
+
