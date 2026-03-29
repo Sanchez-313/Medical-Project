@@ -5,6 +5,8 @@ import Footer from "../Footer/Footer";
 import Cart from "../Cart/Cart";
 import Wishlist from "../Wishlist.jsx/Wishlist";
 import { IoIosArrowUp } from "react-icons/io";
+import { authRequestJson, requestJson } from "../../lib/api";
+import { mapApiProduct } from "../../lib/productCatalog";
 
 const STORAGE_PREFIX = "azuremed";
 
@@ -20,7 +22,7 @@ const parseAuthUser = () => {
 const getAuthIdentity = () => {
   const token = localStorage.getItem("authToken");
   const user = parseAuthUser();
-  if (!token && !user) return null;
+  if (!token) return null;
   return user?.id || user?.email || user?.name || "session";
 };
 
@@ -43,6 +45,12 @@ const writeStoredItems = (type, identity, items) => {
   localStorage.setItem(getStorageKey(type, identity), JSON.stringify(items));
 };
 
+const clearExpiredSession = () => {
+  localStorage.removeItem("authToken");
+  localStorage.removeItem("authUser");
+  window.dispatchEvent(new Event("auth-changed"));
+};
+
 const Layout = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -54,6 +62,7 @@ const Layout = () => {
   const [wishlistItems, setWishlistItems] = useState([]);
   const [orderHistory, setOrderHistory] = useState([]);
   const [stockById, setStockById] = useState({});
+  const [stockConnectionReady, setStockConnectionReady] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [showToast, setShowToast] = useState(false);
   const [showBackToHome, setShowBackToHome] = useState(false);
@@ -64,9 +73,80 @@ const Layout = () => {
   });
   const toastTimerRef = useRef(null);
 
+  const normalizeId = (id) => String(id);
+  const isKnownStock = (value) => Number.isFinite(Number(value));
+  const isAuthenticated = () => Boolean(authIdentity);
+
+  const triggerToast = (message) => {
+    if (!message) return;
+    setToastMessage(message);
+    setShowToast(true);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => {
+      setShowToast(false);
+    }, 1800);
+  };
+
+  const loadStock = async () => {
+    try {
+      const payload = await requestJson("/api/products?limit=200");
+      const products = payload?.data?.products || [];
+      const next = {};
+      for (const product of products) {
+        const id = Number(product?.id);
+        const stock = Number(product?.stock);
+        if (Number.isInteger(id) && Number.isFinite(stock)) {
+          next[normalizeId(id)] = Math.max(0, stock);
+        }
+      }
+      setStockById(next);
+      setStockConnectionReady(true);
+      return next;
+    } catch {
+      setStockConnectionReady(false);
+      return null;
+    }
+  };
+
+  const getDatabaseStock = (id) => {
+    const value = stockById[normalizeId(id)];
+    return isKnownStock(value) ? Number(value) : null;
+  };
+
+  const getProductStock = (id) => {
+    return getDatabaseStock(id);
+  };
+
+  const syncBackendCart = async () => {
+    const token = localStorage.getItem("authToken");
+    if (!token) {
+      setCartItems([]);
+      return [];
+    }
+
+    try {
+      const payload = await authRequestJson("/api/cart", { token });
+      const nextItems = (payload?.data?.items || []).map((item) => ({
+        ...mapApiProduct(item),
+        quantity: Math.max(1, Number(item?.qty) || 1),
+      }));
+      setCartItems(nextItems);
+      return nextItems;
+    } catch (error) {
+      if (
+        error?.status === 401 ||
+        String(error?.message || "").toLowerCase() === "unauthorized"
+      ) {
+        clearExpiredSession();
+      }
+      return [];
+    }
+  };
+
   const handlePanel = (tabName) => {
     if (tabName === "wishlist" && !isAuthenticated()) {
-      openLoginPrompt({
+      setLoginPrompt({
+        open: true,
         title: "Log in to view favorites",
         message: "Please sign in first to view and manage your favorite items.",
       });
@@ -74,28 +154,11 @@ const Layout = () => {
     }
     setActivePanel((prev) => (prev === tabName ? null : tabName));
   };
+
   const handleClose = () => setActivePanel(null);
   const openCart = () => setActivePanel("cart");
   const openWishlist = () => handlePanel("wishlist");
-  const normalizeId = (id) => String(id);
-  const isKnownStock = (value) => Number.isFinite(Number(value));
-  const getProductStock = (id) => {
-    const value = stockById[normalizeId(id)];
-    return isKnownStock(value) ? Number(value) : null;
-  };
-  const adjustStock = (id, delta) => {
-    if (!Number.isFinite(Number(delta)) || Number(delta) === 0) return;
-    const key = normalizeId(id);
-    setStockById((prev) => {
-      const current = prev[key];
-      if (!isKnownStock(current)) return prev;
-      return {
-        ...prev,
-        [key]: Math.max(0, Number(current) + Number(delta)),
-      };
-    });
-  };
-  const isAuthenticated = () => Boolean(authIdentity);
+
   const openLoginPrompt = ({
     title = "Log in to continue",
     message = "Please sign in first.",
@@ -105,23 +168,26 @@ const Layout = () => {
       title,
       message,
     });
+
   const closeLoginPrompt = () =>
     setLoginPrompt((prev) => ({
       ...prev,
       open: false,
     }));
+
   const goToSignIn = () => {
     closeLoginPrompt();
     navigate("/signin");
   };
+
   const ensureAuthenticated = (options) => {
     if (isAuthenticated()) return true;
     openLoginPrompt(options);
     return false;
   };
 
-  const addToCart = (product, quantity = 1) => {
-    if (!product) return;
+  const addToCart = async (product, quantity = 1) => {
+    if (!product) return null;
     if (
       !ensureAuthenticated({
         title: "Log in to buy",
@@ -131,14 +197,18 @@ const Layout = () => {
     ) {
       return null;
     }
+
     const safeQty = Math.max(1, Number(quantity) || 1);
     const available = getProductStock(product.id);
     const qtyToAdd =
       available === null ? safeQty : Math.max(0, Math.min(safeQty, available));
+
     if (qtyToAdd <= 0) {
       triggerToast("Out of stock");
       return 0;
     }
+
+    const previousItems = cartItems;
     setCartItems((prev) => {
       const existing = prev.find(
         (item) => normalizeId(item.id) === normalizeId(product.id),
@@ -152,7 +222,7 @@ const Layout = () => {
       }
       return [...prev, { ...product, quantity: qtyToAdd }];
     });
-    adjustStock(product.id, -qtyToAdd);
+
     if (qtyToAdd < safeQty) {
       triggerToast(`Only ${qtyToAdd} item(s) added due to stock`);
     } else {
@@ -162,10 +232,38 @@ const Layout = () => {
           : "Item added to cart",
       );
     }
+
+    const token = localStorage.getItem("authToken");
+    if (!token) return qtyToAdd;
+
+    try {
+      await authRequestJson("/api/cart/items", {
+        method: "POST",
+        token,
+        body: {
+          product_id: Number(product.id),
+          qty: qtyToAdd,
+        },
+      });
+      await Promise.all([loadStock(), syncBackendCart()]);
+    } catch (error) {
+      setCartItems(previousItems);
+      if (
+        error?.status === 401 ||
+        String(error?.message || "").toLowerCase() === "unauthorized"
+      ) {
+        clearExpiredSession();
+        return 0;
+      }
+      triggerToast(error?.message || "Could not add item to cart");
+    }
+
     return qtyToAdd;
   };
+
   const isFavorite = (id) =>
     wishlistItems.some((item) => String(item.id) === String(id));
+
   const toggleFavorite = (product) => {
     if (!product) return null;
     if (
@@ -189,6 +287,7 @@ const Layout = () => {
     });
     return added;
   };
+
   const updateWishlistQuantity = (id, nextQty) => {
     const safeQty = Math.max(1, Number(nextQty) || 1);
     setWishlistItems((prev) =>
@@ -197,25 +296,57 @@ const Layout = () => {
       ),
     );
   };
+
   const removeFromWishlist = (id) => {
     setWishlistItems((prev) =>
       prev.filter((item) => String(item.id) !== String(id)),
     );
   };
+
   const clearWishlist = () => setWishlistItems([]);
-  const clearCart = () => setCartItems([]);
+
+  const clearCart = async () => {
+    const token = localStorage.getItem("authToken");
+    const previousItems = cartItems;
+    setCartItems([]);
+
+    if (!token) return;
+
+    try {
+      await authRequestJson("/api/cart", {
+        method: "DELETE",
+        token,
+      });
+      await loadStock();
+    } catch (error) {
+      setCartItems(previousItems);
+      if (
+        error?.status === 401 ||
+        String(error?.message || "").toLowerCase() === "unauthorized"
+      ) {
+        clearExpiredSession();
+        return;
+      }
+      triggerToast(error?.message || "Could not clear cart");
+    }
+  };
+
   const addOrder = (order) => {
     if (!order) return;
     setOrderHistory((prev) => [order, ...prev]);
   };
 
-  const updateCartQuantity = (id, nextQty) => {
+  const updateCartQuantity = async (id, nextQty) => {
     const targetId = normalizeId(id);
+    const previousItems = cartItems;
+    let requestedQtyValue = null;
+
     setCartItems((prev) => {
       const target = prev.find((item) => normalizeId(item.id) === targetId);
       if (!target) return prev;
 
       const requestedQty = Math.max(1, Number(nextQty) || 1);
+      requestedQtyValue = requestedQty;
       if (requestedQty === target.quantity) return prev;
 
       if (requestedQty > target.quantity) {
@@ -224,12 +355,13 @@ const Layout = () => {
         const allow = available === null ? need : Math.min(need, available);
         if (allow <= 0) {
           triggerToast("Out of stock");
+          requestedQtyValue = null;
           return prev;
         }
-        adjustStock(id, -allow);
         if (allow < need) {
           triggerToast("Reached stock limit");
         }
+        requestedQtyValue = target.quantity + allow;
         return prev.map((item) =>
           normalizeId(item.id) === targetId
             ? { ...item, quantity: item.quantity + allow }
@@ -237,60 +369,79 @@ const Layout = () => {
         );
       }
 
-      const release = target.quantity - requestedQty;
-      adjustStock(id, release);
       return prev.map((item) =>
         normalizeId(item.id) === targetId
           ? { ...item, quantity: requestedQty }
           : item,
       );
     });
-  };
 
-  const removeFromCart = (id) => {
-    const targetId = normalizeId(id);
-    setCartItems((prev) => {
-      const target = prev.find((item) => normalizeId(item.id) === targetId);
-      if (target) {
-        adjustStock(id, target.quantity);
+    const token = localStorage.getItem("authToken");
+    if (!token || requestedQtyValue === null) return;
+
+    try {
+      await authRequestJson(`/api/cart/items/${id}`, {
+        method: "PATCH",
+        token,
+        body: { qty: requestedQtyValue },
+      });
+      await Promise.all([loadStock(), syncBackendCart()]);
+    } catch (error) {
+      setCartItems(previousItems);
+      if (
+        error?.status === 401 ||
+        String(error?.message || "").toLowerCase() === "unauthorized"
+      ) {
+        clearExpiredSession();
+        return;
       }
-      return prev.filter((item) => normalizeId(item.id) !== targetId);
-    });
+      triggerToast(error?.message || "Could not update cart quantity");
+    }
   };
 
-  const triggerToast = (message) => {
-    if (!message) return;
-    setToastMessage(message);
-    setShowToast(true);
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = setTimeout(() => {
-      setShowToast(false);
-    }, 1800);
+  const removeFromCart = async (id) => {
+    const targetId = normalizeId(id);
+    const previousItems = cartItems;
+    setCartItems((prev) =>
+      prev.filter((item) => normalizeId(item.id) !== targetId),
+    );
+
+    const token = localStorage.getItem("authToken");
+    if (!token) return;
+
+    try {
+      await authRequestJson(`/api/cart/items/${id}`, {
+        method: "DELETE",
+        token,
+      });
+      await Promise.all([loadStock(), syncBackendCart()]);
+    } catch (error) {
+      setCartItems(previousItems);
+      if (
+        error?.status === 401 ||
+        String(error?.message || "").toLowerCase() === "unauthorized"
+      ) {
+        clearExpiredSession();
+        return;
+      }
+      triggerToast(error?.message || "Could not remove item from cart");
+    }
   };
 
   useEffect(() => {
-    const loadStock = async () => {
-      try {
-        const response = await fetch(
-          "http://localhost:8000/api/products?limit=200",
-        );
-        if (!response.ok) return;
-        const payload = await response.json();
-        const products = payload?.data?.products || [];
-        const next = {};
-        for (const product of products) {
-          const id = Number(product?.id);
-          const stock = Number(product?.stock);
-          if (Number.isInteger(id) && Number.isFinite(stock)) {
-            next[normalizeId(id)] = Math.max(0, stock);
-          }
-        }
-        setStockById(next);
-      } catch {
-        // Keep cart usable even if stock API is unavailable.
+    loadStock();
+    const intervalId = window.setInterval(loadStock, 30000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        loadStock();
       }
     };
-    loadStock();
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, []);
 
   useEffect(() => {
@@ -332,10 +483,13 @@ const Layout = () => {
       setDidHydrateSavedState(true);
       return;
     }
-    setCartItems(readStoredItems("cart", authIdentity));
+
     setWishlistItems(readStoredItems("wishlist", authIdentity));
     setOrderHistory(readStoredItems("orders", authIdentity));
-    setDidHydrateSavedState(true);
+    setCartItems(readStoredItems("cart", authIdentity));
+    syncBackendCart().finally(() => {
+      setDidHydrateSavedState(true);
+    });
   }, [authIdentity]);
 
   useEffect(() => {
@@ -367,7 +521,7 @@ const Layout = () => {
       window.removeEventListener("auth-changed", onAuthChanged);
       window.removeEventListener("storage", onAuthChanged);
     };
-  }, []);
+  }, [authIdentity]);
 
   useEffect(() => {
     const onScroll = () => setShowBackToHome(window.scrollY > 240);
@@ -429,7 +583,10 @@ const Layout = () => {
           orderHistory,
           removeFromCart,
           updateCartQuantity,
+          getDatabaseStock,
           getProductStock,
+          stockConnectionReady,
+          refreshStock: loadStock,
           clearCart,
           addOrder,
         }}

@@ -8,6 +8,7 @@ use App\Core\Auth;
 use App\Core\Database;
 use App\Core\Request;
 use App\Core\Response;
+use App\Core\Stock;
 
 final class OrderController extends Controller
 {
@@ -105,14 +106,13 @@ final class OrderController extends Controller
                 $productId = (int) ($item['product_id'] ?? 0);
                 $qty = max(1, (int) ($item['qty'] ?? 1));
 
-                $stmt = $db->prepare('SELECT price_ks, stock FROM products WHERE id = :id LIMIT 1');
-                $stmt->execute(['id' => $productId]);
-                $product = $stmt->fetch();
+                $product = Stock::fetchActiveProduct($db, $productId);
                 if (!$product) {
                     throw new \RuntimeException("Product {$productId} not found");
                 }
 
-                if ((int) $product['stock'] < $qty) {
+                $reservedQty = Stock::reservedQty($db, (int) $payload['sub'], $productId);
+                if (((int) $product['stock']) + $reservedQty < $qty) {
                     throw new \RuntimeException("Insufficient stock for product {$productId}");
                 }
 
@@ -149,10 +149,9 @@ final class OrderController extends Controller
                 $productId = (int) $item['product_id'];
                 $qty = max(1, (int) ($item['qty'] ?? 1));
 
-                $pStmt = $db->prepare('SELECT price_ks FROM products WHERE id = :id LIMIT 1');
-                $pStmt->execute(['id' => $productId]);
-                $product = $pStmt->fetch();
+                $product = Stock::fetchActiveProduct($db, $productId);
                 $unitPrice = (int) $product['price_ks'];
+                $reservedQty = Stock::reservedQty($db, (int) $payload['sub'], $productId);
 
                 $itemStmt->execute([
                     'order_id' => $orderId,
@@ -162,8 +161,35 @@ final class OrderController extends Controller
                     'total_price' => $unitPrice * $qty,
                 ]);
 
-                $stockStmt->execute(['id' => $productId, 'qty' => $qty]);
-                $inventoryStockStmt->execute(['id' => $productId, 'qty' => $qty]);
+                $remainingReservedQty = max(0, $reservedQty - $qty);
+                if ($reservedQty > 0) {
+                    if ($remainingReservedQty > 0) {
+                        $cartUpdateStmt = $db->prepare(
+                            'UPDATE cart_items
+                             SET qty = :qty, updated_at = CURRENT_TIMESTAMP
+                             WHERE user_id = :user_id AND product_id = :product_id'
+                        );
+                        $cartUpdateStmt->execute([
+                            'qty' => $remainingReservedQty,
+                            'user_id' => (int) $payload['sub'],
+                            'product_id' => $productId,
+                        ]);
+                    } else {
+                        $cartDeleteStmt = $db->prepare(
+                            'DELETE FROM cart_items WHERE user_id = :user_id AND product_id = :product_id'
+                        );
+                        $cartDeleteStmt->execute([
+                            'user_id' => (int) $payload['sub'],
+                            'product_id' => $productId,
+                        ]);
+                    }
+                }
+
+                $additionalQty = max(0, $qty - $reservedQty);
+                if ($additionalQty > 0) {
+                    $stockStmt->execute(['id' => $productId, 'qty' => $additionalQty]);
+                    $inventoryStockStmt->execute(['id' => $productId, 'qty' => $additionalQty]);
+                }
             }
 
             $deliveryStmt = $db->prepare(

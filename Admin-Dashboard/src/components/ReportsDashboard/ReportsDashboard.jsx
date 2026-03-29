@@ -21,6 +21,7 @@ const navItems = [
   { name: "ကုန်ပစ္စည်းစာရင်း", path: "/inventory", icon: <Package size={20} /> },
   { name: "ဖောက်သည်များ", path: "/customers", icon: <Users size={20} /> },
   { name: "ပို့ဆောင်မှုများ", path: "/deliveries", icon: <Truck size={20} /> },
+  { name: "အော်ဒါများ", path: "/orders", icon: <ClipboardList size={20} /> },
   { name: "အစီရင်ခံစာများ", path: "/reports", icon: <BarChart3 size={20} /> },
 ];
 

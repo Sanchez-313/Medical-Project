@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import LoginImage from "../../assets/Engmedicines/FAQsection.jpg";
+import Logo from "../../assets/Logo/logo.png";
 import { FaFacebook, FaGoogle, FaTelegram, FaViber } from "react-icons/fa6";
 import { X } from "lucide-react"; 
 import { Link, useNavigate } from "react-router-dom"; // Use Link for internal routing
+import { API_BASE_URL } from "../../lib/api";
 
 const SignIn = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
@@ -31,7 +33,7 @@ const SignIn = ({ isOpen, onClose }) => {
 
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:8000/api/auth/login", {
+      const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -51,7 +53,7 @@ const SignIn = ({ isOpen, onClose }) => {
 
       closeSignIn();
     } catch {
-      setError("Cannot reach backend. Make sure API is running on localhost:8000.");
+      setError(`Cannot reach backend. Make sure API is running on ${API_BASE_URL}.`);
     } finally {
       setLoading(false);
     }
@@ -83,10 +85,20 @@ const SignIn = ({ isOpen, onClose }) => {
         >
           <div className="absolute inset-0 bg-blue-900/70 z-0"></div>
 
-          <div className="relative z-10">
-            <h2 className="text-2xl font-black tracking-tighter italic">
-              AzureMed<span className="text-blue-300"> HUB</span>
-            </h2>
+          <div className="relative z-10 flex items-center gap-3">
+            <img
+              src={Logo}
+              alt="AzureMed Hub logo"
+              className="h-12 w-12 rounded-2xl object-contain bg-white/10 p-1.5"
+            />
+            <div className="flex items-center gap-1 whitespace-nowrap">
+              <span className="text-2xl font-black tracking-tight italic">
+                AzureMed
+              </span>
+              <span className="text-2xl font-black tracking-tight italic text-blue-300">
+                HUB
+              </span>
+            </div>
           </div>
 
           <div className="relative z-10 flex flex-col items-center text-center">
@@ -121,6 +133,21 @@ const SignIn = ({ isOpen, onClose }) => {
 
           <div className="w-full max-w-md">
             <header className="mb-10 text-center">
+              <div className="mb-4 flex items-center justify-center gap-3">
+                <img
+                  src={Logo}
+                  alt="AzureMed Hub logo"
+                  className="h-12 w-12 rounded-2xl object-contain bg-slate-100 p-1.5"
+                />
+                <div className="flex items-center gap-1 whitespace-nowrap">
+                  <span className="text-2xl font-black tracking-tight text-indigo-400 italic">
+                    AzureMed
+                  </span>
+                  <span className="text-2xl font-black tracking-tight text-blue-600 italic">
+                    HUB
+                  </span>
+                </div>
+              </div>
               <h2 className="text-3xl font-extrabold text-slate-800 tracking-tight">
                 Welcome Back
               </h2>

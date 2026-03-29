@@ -242,7 +242,7 @@ const products = [
   { id: 78, name: "Oral Rehydration Salts (ORS)", price: 1200, category: 'EnglishMedicine', image: Cevit },
 ]
 
-const productsWithDescriptions = products.map((product) => {
+export const productsWithDescriptions = products.map((product) => {
   const normalizedName = normalizeName(product.name);
   const description =
     product.description ||

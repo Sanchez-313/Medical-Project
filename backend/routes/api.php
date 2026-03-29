@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Controllers\AuthController;
+use App\Controllers\CartController;
 use App\Controllers\CustomerController;
 use App\Controllers\DeliveryController;
 use App\Controllers\InquiryController;
@@ -35,6 +36,12 @@ $router->post('/api/auth/login', [AuthController::class, 'login']);
 
 $router->get('/api/products', [ProductController::class, 'index']);
 $router->get('/api/products/{id}', [ProductController::class, 'show']);
+
+$router->get('/api/cart', [CartController::class, 'index']);
+$router->delete('/api/cart', [CartController::class, 'clear']);
+$router->post('/api/cart/items', [CartController::class, 'store']);
+$router->patch('/api/cart/items/{productId}', [CartController::class, 'update']);
+$router->delete('/api/cart/items/{productId}', [CartController::class, 'destroy']);
 
 $router->get('/api/customers', [CustomerController::class, 'index']);
 $router->post('/api/customers', [CustomerController::class, 'store']);

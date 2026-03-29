@@ -13,11 +13,19 @@ $appConfig = config('app');
 
 $originHeader = $_SERVER['HTTP_ORIGIN'] ?? '';
 $allowedOrigins = array_filter(array_map('trim', explode(',', (string) $appConfig['frontend_origin'])));
-$isAllowedOrigin = $originHeader && in_array($originHeader, $allowedOrigins, true);
+$isLocalDevOrigin = $originHeader !== '' && preg_match(
+    '#^https?://(?:localhost|127\.0\.0\.1)(?::\d+)?$#',
+    $originHeader
+) === 1;
+$isAllowedOrigin = $originHeader && (
+    in_array($originHeader, $allowedOrigins, true) ||
+    $isLocalDevOrigin
+);
 $corsOrigin = $isAllowedOrigin ? $originHeader : ($allowedOrigins[0] ?? '');
 if ($corsOrigin !== '') {
     header('Access-Control-Allow-Origin: ' . $corsOrigin);
 }
+header('Vary: Origin');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 header('Access-Control-Allow-Methods: GET, POST, PATCH, DELETE, OPTIONS');
 

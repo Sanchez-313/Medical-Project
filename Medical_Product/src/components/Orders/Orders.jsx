@@ -1,6 +1,12 @@
 import React, { useEffect, useState } from 'react'
 import { Link, useOutletContext } from 'react-router-dom'
 
+const clearExpiredSession = () => {
+  localStorage.removeItem('authToken')
+  localStorage.removeItem('authUser')
+  window.dispatchEvent(new Event('auth-changed'))
+}
+
 const Orders = () => {
   const outletContext = useOutletContext() || {}
   const { orderHistory = [] } = outletContext
@@ -25,6 +31,11 @@ const Orders = () => {
         })
         const data = await response.json()
         if (!mounted) return
+        if (response.status === 401) {
+          clearExpiredSession()
+          setBackendOrders([])
+          return
+        }
         if (response.ok && data?.success) {
           setBackendOrders(data?.data?.orders || [])
         }

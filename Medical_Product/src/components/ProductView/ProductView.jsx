@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Link, useLocation, useNavigate, useOutletContext } from "react-router-dom";
 import { FaShoppingBag } from "react-icons/fa";
+import { requestJson } from "../../lib/api";
 
 const ProductView = ({ isOpen, onClose, product, onAddToCart }) => {
   const navigate = useNavigate();
@@ -22,7 +23,9 @@ const ProductView = ({ isOpen, onClose, product, onAddToCart }) => {
   const toggleFavorite = outletContext?.toggleFavorite;
   const isFavorite = outletContext?.isFavorite;
   const showToast = outletContext?.showToast;
+  const getDatabaseStock = outletContext?.getDatabaseStock;
   const getProductStock = outletContext?.getProductStock;
+  const stockConnectionReady = outletContext?.stockConnectionReady;
   const [quantity, setQuantity] = useState(1);
   const [isZoomed, setIsZoomed] = useState(false);
   const [liveStock, setLiveStock] = useState(null);
@@ -49,6 +52,10 @@ const ProductView = ({ isOpen, onClose, product, onAddToCart }) => {
   useEffect(() => {
     if (!isOpen) return;
     const productId = Number(product?.id);
+    const fallbackContextStock = getProductStock?.(product?.id);
+    const hasFallbackStock =
+      Number.isFinite(Number(fallbackContextStock)) ||
+      Number.isFinite(Number(product?.stock));
     if (!Number.isInteger(productId) || productId <= 0) {
       setLiveStock(null);
       setIsLoadingStock(false);
@@ -57,14 +64,11 @@ const ProductView = ({ isOpen, onClose, product, onAddToCart }) => {
 
     const controller = new AbortController();
     const loadStock = async () => {
-      setIsLoadingStock(true);
+      setIsLoadingStock(!hasFallbackStock);
       try {
-        const response = await fetch(
-          `http://localhost:8000/api/products/${productId}`,
-          { signal: controller.signal }
-        );
-        if (!response.ok) throw new Error("Failed to load stock");
-        const payload = await response.json();
+        const payload = await requestJson(`/api/products/${productId}`, {
+          signal: controller.signal,
+        });
         const stockValue = payload?.data?.product?.stock;
         setLiveStock(
           Number.isFinite(Number(stockValue)) ? Number(stockValue) : null
@@ -95,8 +99,12 @@ const ProductView = ({ isOpen, onClose, product, onAddToCart }) => {
     description = "Product details are available in the label and packaging. Use as directed.",
     id = name,
   } = product || {};
+  const databaseContextStock = getDatabaseStock?.(id);
   const contextStock = getProductStock?.(id);
   const favoriteActive = Boolean(isFavorite?.(id));
+  const normalizedDatabaseContextStock = Number.isFinite(Number(databaseContextStock))
+    ? Number(databaseContextStock)
+    : null;
   const normalizedLiveStock = Number.isFinite(Number(liveStock))
     ? Number(liveStock)
     : null;
@@ -107,13 +115,18 @@ const ProductView = ({ isOpen, onClose, product, onAddToCart }) => {
     ? Number(stock)
     : null;
 
-  // If cart has reserved quantity, show that reduced stock immediately in UI.
   const displayStock =
     normalizedContextStock !== null && normalizedLiveStock !== null
       ? Math.min(normalizedContextStock, normalizedLiveStock)
       : normalizedContextStock ??
         normalizedLiveStock ??
         normalizedPropStock;
+  const databaseStock =
+    normalizedLiveStock ?? normalizedDatabaseContextStock ?? normalizedPropStock;
+  const reservedInCart =
+    databaseStock !== null && normalizedContextStock !== null
+      ? Math.max(0, databaseStock - normalizedContextStock)
+      : 0;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-300 pointer-events-none">
@@ -204,22 +217,29 @@ const ProductView = ({ isOpen, onClose, product, onAddToCart }) => {
               Stock:{" "}
               <span
                 className={
-                  isLoadingStock
+                  isLoadingStock && displayStock === null
                     ? "text-slate-500"
                     : displayStock > 0
                       ? "text-emerald-600"
                       : "text-red-500"
                 }
               >
-                {isLoadingStock
+                {isLoadingStock && displayStock === null
                   ? "Loading..."
-                  : displayStock === null
+                  : !stockConnectionReady && displayStock === null
+                    ? "Connecting to database..."
+                    : displayStock === null
                     ? "Unavailable"
                     : displayStock > 0
-                      ? `${displayStock} available`
+                      ? `${displayStock} in stock`
                       : "Out of stock"}
               </span>
             </p>
+            {reservedInCart > 0 ? (
+              <p className="mt-1 text-[11px] font-semibold text-amber-600">
+                {reservedInCart} reserved in your cart
+              </p>
+            ) : null}
           </div>
 
           {/* Description */}
@@ -283,10 +303,13 @@ const ProductView = ({ isOpen, onClose, product, onAddToCart }) => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <button
-                onClick={() => {
+                onClick={async () => {
                   if (addToCart) {
-                    const added = addToCart({ id, name, price, image, category }, quantity);
-                    if (typeof added === "number" && added > 0) {
+                    const added = await addToCart(
+                      { id, name, price, image, category },
+                      quantity,
+                    );
+                    if (Number(added) > 0) {
                       setQuantity(1);
                     }
                   }

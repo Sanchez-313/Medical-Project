@@ -1,19 +1,42 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Heading from "../Heading/Heading";
-import ProductsList from "../ProductList/ProductList.js";
 import Cards from "../Cards/Cards";
-import Button from "../Button/Button.jsx";
 import { Link } from "react-router-dom";
+import { requestJson } from "../../lib/api";
+import { fallbackCatalogProducts, mapApiProduct } from "../../lib/productCatalog";
 
 const Products = ({ addToCart, searchTerm = "" }) => {
   const categories = ["All", "EnglishMedicine", "MyanmarMedicine", "Equipment"];
   const [activeTab, setActivetab] = useState("All");
+  const [products, setProducts] = useState(fallbackCatalogProducts);
   const normalizedSearch = searchTerm.trim().toLowerCase();
+
+  useEffect(() => {
+    let mounted = true;
+    const loadProducts = async () => {
+      try {
+        const payload = await requestJson("/api/products?limit=200");
+        const nextProducts = (payload?.data?.products || []).map(mapApiProduct);
+        if (mounted) {
+          setProducts(nextProducts.length > 0 ? nextProducts : fallbackCatalogProducts);
+        }
+      } catch {
+        if (mounted) {
+          setProducts(fallbackCatalogProducts);
+        }
+      }
+    };
+
+    loadProducts();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   let filteredItems =
     activeTab === "All"
-      ? ProductsList
-      : ProductsList.filter((item) => item.category === activeTab);
+      ? products
+      : products.filter((item) => item.category === activeTab);
 
   if (normalizedSearch) {
     filteredItems = filteredItems.filter((item) =>
@@ -32,7 +55,7 @@ const Products = ({ addToCart, searchTerm = "" }) => {
         image={product.image}
         name={product.name}
         price={product.price}
-        category={product.category}
+        category={product.categoryLabel || product.category}
         stock={product.stock}
         description={product.description}
         onAddToCart={addToCart}

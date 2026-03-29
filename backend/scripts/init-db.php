@@ -80,7 +80,7 @@ if ($schema === false) {
 
 $db->exec($schema);
 
-$tables = ['deliveries', 'order_items', 'orders', 'inventory_items', 'reviews', 'inquiries', 'products', 'customers', 'users'];
+$tables = ['deliveries', 'order_items', 'orders', 'cart_items', 'inventory_items', 'reviews', 'inquiries', 'products', 'customers', 'users'];
 
 if ($driver === 'mysql') {
     $db->exec('SET FOREIGN_KEY_CHECKS=0');
@@ -94,7 +94,7 @@ if ($driver === 'mysql') {
     }
 
     // Reset SQLite autoincrement counters for deterministic IDs.
-    $db->exec("DELETE FROM sqlite_sequence WHERE name IN ('users','products','inventory_items','customers','orders','order_items','deliveries','reviews','inquiries')");
+    $db->exec("DELETE FROM sqlite_sequence WHERE name IN ('users','products','inventory_items','customers','cart_items','orders','order_items','deliveries','reviews','inquiries')");
 }
 
 $userStmt = $db->prepare('INSERT INTO users (name, email, password_hash, role) VALUES (:name, :email, :password_hash, :role)');

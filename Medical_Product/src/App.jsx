@@ -1,7 +1,7 @@
 import React from "react";
 import Home from "./components/Home/Home";
 import EnglishMedicines from "./components/EnglishMedicines/EnglishMedicines";
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { createBrowserRouter, Navigate, RouterProvider, useLocation } from "react-router-dom";
 import MyanmarMedicine from "./components/MyanmarMedicine/MyanmarMedicine";
 import Equipments from "./components/Equipments/Equipments";
 import Allproducts from "./components/Allproducts/Allproducts";
@@ -16,7 +16,19 @@ import ProductView from "./components/ProductView/ProductView";
 import CartPage from "./components/Cart/CartPage";
 import Reviews from "./components/Reviews/Reviews";
 import Orders from "./components/Orders/Orders";
+import DetectMedicine from "./components/DetectMedicine/DetectMedicine";
 
+const RequireAuth = ({ children }) => {
+  const location = useLocation();
+  const token = localStorage.getItem("authToken");
+  const user = localStorage.getItem("authUser");
+
+  if (!token && !user) {
+    return <Navigate to="/signin" replace state={{ from: location.pathname }} />;
+  }
+
+  return children;
+};
 
 const App = () => {
   const router = createBrowserRouter([
@@ -138,6 +150,14 @@ const App = () => {
         {
           path: "/orders",
           element: <Orders />,
+        },
+        {
+          path: "/detect-medicine",
+          element: (
+            <RequireAuth>
+              <DetectMedicine />
+            </RequireAuth>
+          ),
         },
       ],
     },

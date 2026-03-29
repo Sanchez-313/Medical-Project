@@ -156,6 +156,10 @@ export async function getDeliveries() {
   return withAuth("/api/deliveries");
 }
 
+export async function getOrders() {
+  return withAuth("/api/orders");
+}
+
 export async function updateDelivery(id, payload) {
   return withAuth(`/api/deliveries/${id}`, {
     method: "PATCH",

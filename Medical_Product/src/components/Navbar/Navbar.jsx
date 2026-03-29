@@ -92,29 +92,29 @@ export const Navbar = ({ searchTerm = "", setSearchTerm, handlePanel, cartCount 
         scrolled ? "bg-white/95 backdrop-blur-md shadow-md py-4" : "bg-gray-100 py-6"
       }`}
     >
-      <nav className="max-w-[1400px] mx-auto pl-12 pr-10 md:px-10 flex justify-between items-center">
+      <nav className="mx-auto flex max-w-[1400px] items-center justify-between gap-6 px-4 sm:px-6 md:px-8 lg:px-10">
         {/* Logo Section */}
         <button
           type="button"
           onClick={handleLogoClick}
-          className="flex items-center gap-2 group -ml-14 md:-ml-20 bg-transparent"
+          className="flex items-center gap-2 group -ml-10 md:-ml-14 bg-transparent"
         >
           <img src={Logo} alt="VitalRx Logo" className="w-12 h-12 object-contain group-hover:rotate-12 transition-transform" />
           <div className="flex flex-col leading-none">
             <div className="flex items-baseline gap-1 whitespace-nowrap">
-              <span className="text-xl md:text-2xl font-bold tracking-tighter text-indigo-400 uppercase italic">
+              <span className="text-lg md:text-[1.35rem] font-bold tracking-tight text-indigo-400 uppercase italic">
                 AzureMed
               </span>
-              <span className="text-xl md:text-2xl font-bold tracking-tighter text-blue-600 uppercase italic">
+              <span className="text-lg md:text-[1.35rem] font-bold tracking-tight text-blue-600 uppercase italic">
                 hub
               </span>
             </div>
-            <span className="text-[9px] font-bold text-blue-400 uppercase tracking-[0.2em]">Digital Pharmacy</span>
+            <span className="text-[8px] font-bold text-blue-400 uppercase tracking-[0.18em]">Digital Pharmacy</span>
           </div>
         </button>
 
         {/* Desktop Menu */}
-        <ul className="md:flex items-center gap-x-8 hidden text-sm font-bold uppercase tracking-widest">
+        <ul className="hidden min-w-0 flex-1 items-center justify-end gap-x-5 pl-8 text-[12px] font-bold uppercase tracking-[0.12em] md:flex lg:gap-x-7 lg:pl-12">
           <li>
             <NavLink to="/" className={linkStyle} onClick={() => scrollTopIfNonProductPath("/")}>Home</NavLink>
           </li>
@@ -125,7 +125,7 @@ export const Navbar = ({ searchTerm = "", setSearchTerm, handlePanel, cartCount 
             onMouseEnter={() => setIsDropdownOpen(true)}
             onMouseLeave={() => setIsDropdownOpen(false)}
           >
-            <button className="flex items-center gap-1 text-zinc-800 hover:text-blue-500 transition-colors py-2">
+            <button className="flex items-center gap-1 text-zinc-800 hover:text-blue-500 transition-colors py-2 text-[12px]">
               Pharmacy <FaChevronDown className={`text-[10px] transition-transform ${isDropdownOpen ? "rotate-180" : ""}`} />
             </button>
 
@@ -145,7 +145,7 @@ export const Navbar = ({ searchTerm = "", setSearchTerm, handlePanel, cartCount 
             onMouseEnter={() => setIsSupportDropdownOpen(true)}
             onMouseLeave={() => setIsSupportDropdownOpen(false)}
           >
-            <button className="flex items-center gap-1 text-zinc-800 hover:text-blue-500 transition-colors py-2">
+            <button className="flex items-center gap-1 text-zinc-800 hover:text-blue-500 transition-colors py-2 text-[12px]">
               Support & Feedback{" "}
               <FaChevronDown className={`text-[10px] transition-transform ${isSupportDropdownOpen ? "rotate-180" : ""}`} />
             </button>
@@ -162,12 +162,21 @@ export const Navbar = ({ searchTerm = "", setSearchTerm, handlePanel, cartCount 
               Bills
             </NavLink>
           </li>
+          <li>
+            <NavLink
+              to="/detect-medicine"
+              className={linkStyle}
+              onClick={() => scrollTopIfNonProductPath("/detect-medicine")}
+            >
+              Detect Medicine
+            </NavLink>
+          </li>
           
           <div className="h-6 w-[1px] bg-slate-200 mx-2"></div>
 
           {authUser ? (
             <>
-              <li className="text-zinc-700 normal-case tracking-normal">
+              <li className="text-[12px] text-zinc-700 normal-case tracking-normal">
                 Hi, {authUser.name}
               </li>
               <li>
@@ -181,16 +190,22 @@ export const Navbar = ({ searchTerm = "", setSearchTerm, handlePanel, cartCount 
               </li>
             </>
           ) : (
-            <>
-              <li>
-                <NavLink to="/signin" className="text-zinc-600 hover:text-blue-600 transition-colors">Sign In</NavLink>
-              </li>
-              <li>
-                <NavLink to="/signup" className="bg-blue-600 text-white px-6 py-2.5 rounded-full hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 active:scale-95">
+            <li>
+              <div className="flex items-center gap-3">
+                <NavLink
+                  to="/signin"
+                  className="flex min-w-[112px] items-center justify-center rounded-full border-2 border-blue-600 px-6 py-2.5 text-blue-600 transition-all hover:bg-blue-50 active:scale-95"
+                >
+                  Sign In
+                </NavLink>
+                <NavLink
+                  to="/signup"
+                  className="flex min-w-[112px] items-center justify-center rounded-full bg-blue-600 px-6 py-2.5 text-white transition-all shadow-lg shadow-blue-100 hover:bg-blue-700 active:scale-95"
+                >
                   Sign Up
                 </NavLink>
-              </li>
-            </>
+              </div>
+            </li>
           )}
         </ul>
 
@@ -243,6 +258,13 @@ export const Navbar = ({ searchTerm = "", setSearchTerm, handlePanel, cartCount 
              <NavLink to="/orders" onClick={() => { scrollTopIfNonProductPath("/orders"); toggleMenu(); }} className="text-2xl font-bold text-slate-800">
                Bills
              </NavLink>
+             <NavLink
+               to="/detect-medicine"
+               onClick={() => { scrollTopIfNonProductPath("/detect-medicine"); toggleMenu(); }}
+               className="text-2xl font-bold text-slate-800"
+             >
+               Detect Medicine
+             </NavLink>
              
              <div className="flex flex-col items-center gap-y-3">
                <NavLink to="/EnglishMedicine" onClick={toggleMenu} className="text-lg text-slate-500 hover:text-blue-600">English Medicines</NavLink>
@@ -283,9 +305,21 @@ export const Navbar = ({ searchTerm = "", setSearchTerm, handlePanel, cartCount 
                  </button>
                </div>
              ) : (
-               <div className="flex flex-row w-full gap-4 mt-4">
-                 <NavLink to="/signin" onClick={toggleMenu} className="w-full text-center py-4 border-2 border-blue-600 text-blue-600 rounded-2xl font-bold hover:bg-indigo-400 hover:text-white hover:shadow-2xl">Sign In</NavLink>
-                 <NavLink to="/signup" onClick={toggleMenu} className="w-full text-center py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-xl hover:bg-amber-100 hover:text-blue-600 hover:shadow-2xl">Register</NavLink>
+               <div className="mt-4 grid w-full grid-cols-2 gap-4">
+                 <NavLink
+                   to="/signin"
+                   onClick={toggleMenu}
+                   className="flex w-full items-center justify-center text-center py-4 border-2 border-blue-600 text-blue-600 rounded-2xl font-bold hover:bg-indigo-400 hover:text-white hover:shadow-2xl"
+                 >
+                   Sign In
+                 </NavLink>
+                 <NavLink
+                   to="/signup"
+                   onClick={toggleMenu}
+                   className="flex w-full items-center justify-center text-center py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-xl hover:bg-amber-100 hover:text-blue-600 hover:shadow-2xl"
+                 >
+                   Register
+                 </NavLink>
                </div>
              )}
           </div>

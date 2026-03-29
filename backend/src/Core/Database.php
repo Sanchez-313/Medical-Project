@@ -11,6 +11,40 @@ final class Database
 {
     private static ?PDO $pdo = null;
 
+    private static function ensureSchemaExtensions(PDO $pdo, array $cfg): void
+    {
+        if (($cfg['driver'] ?? 'sqlite') === 'sqlite') {
+            $pdo->exec(
+                'CREATE TABLE IF NOT EXISTS cart_items (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    product_id INTEGER NOT NULL,
+                    qty INTEGER NOT NULL DEFAULT 1,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (user_id, product_id),
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+                )'
+            );
+            return;
+        }
+
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS cart_items (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                product_id INT NOT NULL,
+                qty INT NOT NULL DEFAULT 1,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                CONSTRAINT uq_cart_items_user_product UNIQUE (user_id, product_id),
+                CONSTRAINT fk_cart_items_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                CONSTRAINT fk_cart_items_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
+        );
+    }
+
     private static function sqlitePath(array $cfg): string
     {
         $path = (string) ($cfg['sqlite']['path'] ?? '');
@@ -97,6 +131,7 @@ final class Database
 
             self::$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
             self::$pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+            self::ensureSchemaExtensions(self::$pdo, $cfg);
 
             return self::$pdo;
         } catch (PDOException $e) {

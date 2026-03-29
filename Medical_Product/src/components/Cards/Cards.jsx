@@ -10,9 +10,12 @@ const Cards = ({ id, image, name, price, category, stock, description, onAddToCa
   const isFavorite = outletContext.isFavorite;
   const getProductStock = outletContext.getProductStock;
 
-  const stockFromStore = getProductStock?.(id);
+  const availableStock = getProductStock?.(id);
+  const normalizedAvailableStock = Number.isFinite(Number(availableStock))
+    ? Number(availableStock)
+    : null;
   const normalizedPropStock = Number.isFinite(Number(stock)) ? Number(stock) : null;
-  const displayStock = Number.isFinite(Number(stockFromStore)) ? Number(stockFromStore) : normalizedPropStock;
+  const displayStock = normalizedAvailableStock ?? normalizedPropStock;
   const isOutOfStock = displayStock !== null && displayStock <= 0;
   const favoriteActive = Boolean(isFavorite?.(id));
 
@@ -52,6 +55,9 @@ const Cards = ({ id, image, name, price, category, stock, description, onAddToCa
           <h3 className='text-lg font-bold text-slate-800 truncate'>{name}</h3>
           <p className='text-xl font-black text-slate-900 mt-2'>
             {price.toLocaleString()} <span className='text-xs font-medium'>MMK</span>
+          </p>
+          <p className={`mt-2 text-xs font-bold uppercase tracking-wider ${isOutOfStock ? 'text-red-500' : 'text-emerald-600'}`}>
+            {displayStock === null ? 'Stock unavailable' : `${displayStock} available`}
           </p>
           
           <button 

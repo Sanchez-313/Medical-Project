@@ -8,9 +8,15 @@ import {
 
 const API_BASE_URL = 'http://localhost:8000';
 
+const clearExpiredSession = () => {
+  localStorage.removeItem('authToken');
+  localStorage.removeItem('authUser');
+  window.dispatchEvent(new Event('auth-changed'));
+};
+
 const CheckoutPage = () => {
   const outletContext = useOutletContext() || {};
-  const { cartItems = [], addOrder, clearCart } = outletContext;
+  const { cartItems = [], addOrder, clearCart, refreshStock } = outletContext;
   const shippingSectionRef = useRef(null);
 
   const [paymentMethod, setPaymentMethod] = useState('kpay');
@@ -176,6 +182,15 @@ const CheckoutPage = () => {
       });
 
       const data = await response.json();
+      if (response.status === 401) {
+        clearExpiredSession();
+        setPaymentNotice({
+          type: 'error',
+          message: 'Your login session expired. Please sign in again and then confirm your order.',
+        });
+        return;
+      }
+
       if (!response.ok || !data?.success) {
         setPaymentNotice({
           type: 'error',
@@ -195,7 +210,8 @@ const CheckoutPage = () => {
       };
 
       addOrder?.(savedOrder);
-      clearCart?.();
+      await clearCart?.();
+      await refreshStock?.();
       setInvoiceOrder(savedOrder);
       setShowInvoiceModal(true);
       setKpayScreenshot(null);

@@ -18,20 +18,31 @@ final class ProductController extends Controller
         $offset = (int) $request->query('offset', 0);
         $limit = max(1, min($limit, 200));
 
-        $sql = 'SELECT id, name, slug, category, price_ks, image_url, stock, is_active FROM products WHERE is_active = 1';
+        $sql = 'SELECT 
+                    p.id,
+                    p.name,
+                    p.slug,
+                    p.category,
+                    COALESCE(ii.price_ks, p.price_ks) AS price_ks,
+                    p.image_url,
+                    COALESCE(ii.stock, p.stock) AS stock,
+                    p.is_active
+                FROM products p
+                LEFT JOIN inventory_items ii ON ii.product_id = p.id
+                WHERE p.is_active = 1';
         $params = [];
 
         if ($category !== '') {
-            $sql .= ' AND category = :category';
+            $sql .= ' AND p.category = :category';
             $params['category'] = $category;
         }
 
         if ($search !== '') {
-            $sql .= ' AND name LIKE :search';
+            $sql .= ' AND p.name LIKE :search';
             $params['search'] = '%' . $search . '%';
         }
 
-        $sql .= ' ORDER BY id LIMIT :limit OFFSET :offset';
+        $sql .= ' ORDER BY p.id LIMIT :limit OFFSET :offset';
 
         $db = Database::connection();
         $stmt = $db->prepare($sql);
@@ -51,7 +62,22 @@ final class ProductController extends Controller
     {
         $id = (int) ($params['id'] ?? 0);
         $db = Database::connection();
-        $stmt = $db->prepare('SELECT id, name, slug, category, price_ks, image_url, stock, description, is_active FROM products WHERE id = :id LIMIT 1');
+        $stmt = $db->prepare(
+            'SELECT
+                p.id,
+                p.name,
+                p.slug,
+                p.category,
+                COALESCE(ii.price_ks, p.price_ks) AS price_ks,
+                p.image_url,
+                COALESCE(ii.stock, p.stock) AS stock,
+                p.description,
+                p.is_active
+            FROM products p
+            LEFT JOIN inventory_items ii ON ii.product_id = p.id
+            WHERE p.id = :id
+            LIMIT 1'
+        );
         $stmt->execute(['id' => $id]);
 
         $product = $stmt->fetch();

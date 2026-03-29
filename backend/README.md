@@ -29,7 +29,7 @@ This backend is designed to support both frontend apps in this repository:
    ```
 3. Run server:
    ```powershell
-   php -S localhost:8000 -t public
+   php -c php-mysql-sqlite.ini -S localhost:8000 router.php
    ```
 
 Base API URL: `http://localhost:8000`

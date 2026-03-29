@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import LoginImage from "../../assets/Engmedicines/Hero.png";
+import Logo from "../../assets/Logo/logo.png";
 import { EyeIcon, EyeOffIcon, X } from "lucide-react";
 import { FaFacebook, FaGoogle, FaTelegram, FaViber } from "react-icons/fa6";
 import { Link, useNavigate } from "react-router-dom";
+import { API_BASE_URL } from "../../lib/api";
 
 const SignUp = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
@@ -35,7 +37,7 @@ const SignUp = ({ isOpen, onClose }) => {
 
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:8000/api/auth/register", {
+      const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, password, role: "customer" }),
@@ -59,7 +61,7 @@ const SignUp = ({ isOpen, onClose }) => {
       setEmail("");
       setPassword("");
     } catch {
-      setError("Cannot reach backend. Make sure API is running on localhost:8000.");
+      setError(`Cannot reach backend. Make sure API is running on ${API_BASE_URL}.`);
     } finally {
       setLoading(false);
     }
@@ -103,6 +105,21 @@ const SignUp = ({ isOpen, onClose }) => {
         <div className="flex w-full flex-col items-center justify-center p-8 lg:w-1/2">
           <div className="w-full max-w-md">
             <div className="mb-8 text-center">
+              <div className="mb-4 flex items-center justify-center gap-3">
+                <img
+                  src={Logo}
+                  alt="AzureMed Hub logo"
+                  className="h-12 w-12 rounded-2xl object-contain bg-slate-100 p-1.5"
+                />
+                <div className="flex items-center gap-1 whitespace-nowrap">
+                  <span className="text-2xl font-black tracking-tight text-indigo-400 italic">
+                    AzureMed
+                  </span>
+                  <span className="text-2xl font-black tracking-tight text-blue-600 italic">
+                    HUB
+                  </span>
+                </div>
+              </div>
               <h2 className="text-3xl font-extrabold text-slate-800 tracking-tight">
                 Create Your Profile
               </h2>
@@ -218,10 +235,20 @@ const SignUp = ({ isOpen, onClose }) => {
             <X size={20} />
           </button>
 
-          <div className="relative z-10 text-center">
-            <h2 className="text-2xl font-black tracking-tighter italic">
-              AzureMed<span className="font-light text-blue-200"> HUB</span>
-            </h2>
+          <div className="relative z-10 flex items-center justify-center gap-3">
+            <img
+              src={Logo}
+              alt="AzureMed Hub logo"
+              className="h-12 w-12 rounded-2xl object-contain bg-white/10 p-1.5"
+            />
+            <div className="flex items-center gap-1 whitespace-nowrap">
+              <span className="text-2xl font-black tracking-tight italic">
+                AzureMed
+              </span>
+              <span className="text-2xl font-black tracking-tight italic text-blue-200">
+                HUB
+              </span>
+            </div>
           </div>
 
           <div className="relative z-10 flex flex-col items-center text-center">

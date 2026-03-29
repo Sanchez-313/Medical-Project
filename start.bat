@@ -32,7 +32,8 @@ powershell -NoProfile -Command ^
   "if($c -match 'FRONTEND_ORIGIN='){ $c=$c -replace 'FRONTEND_ORIGIN=.*','FRONTEND_ORIGIN=%ORIGIN%' } else { $c += \"`r`nFRONTEND_ORIGIN=%ORIGIN%\" };" ^
   "Set-Content $p $c"
 
-set BACKEND_BOOTSTRAP=php -S localhost:8000 -t public
+set PHP_INI=php-mysql-sqlite.ini
+set BACKEND_BOOTSTRAP=php -c !PHP_INI! -S localhost:8000 router.php
 
 echo Starting backend...
 start "Backend API" cmd /k "cd /d C:\Users\Asus\Documents\medical Project\backend && !BACKEND_BOOTSTRAP!"
