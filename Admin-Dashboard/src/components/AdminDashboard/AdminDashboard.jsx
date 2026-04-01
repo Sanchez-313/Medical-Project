@@ -13,6 +13,7 @@ import {
   AlertCircle,
   History,
   ChevronRight,
+  PackagePlus,
 } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import Logo from "../../assets/Logo/logo.png";
@@ -21,6 +22,7 @@ import { getCustomers, getDeliveries, getInventory, getReviews } from "../../lib
 const navItems = [
   { name: "ဒက်ရှ်ဘုတ်", path: "/overview", icon: <LayoutDashboard size={20} /> },
   { name: "ကုန်ပစ္စည်းစာရင်း", path: "/inventory", icon: <Package size={20} /> },
+  { name: "Restock", path: "/restock", icon: <PackagePlus size={20} /> },
   { name: "ဖောက်သည်များ", path: "/customers", icon: <Users size={20} /> },
   { name: "ပို့ဆောင်မှုများ", path: "/deliveries", icon: <Truck size={20} /> },
   { name: "အော်ဒါများ", path: "/orders", icon: <ClipboardList size={20} /> },

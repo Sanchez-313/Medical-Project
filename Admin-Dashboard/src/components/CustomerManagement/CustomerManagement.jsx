@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  PackagePlus,
 } from "lucide-react";
 import Logo from "../../assets/Logo/logo.png";
 import { createCustomer, getCustomers } from "../../lib/api";
@@ -22,6 +23,7 @@ import { createCustomer, getCustomers } from "../../lib/api";
 const navItems = [
   { name: "ဒက်ရှ်ဘုတ်", path: "/overview", icon: <LayoutDashboard size={20} /> },
   { name: "ကုန်ပစ္စည်းစာရင်း", path: "/inventory", icon: <Package size={20} /> },
+  { name: "Restock", path: "/restock", icon: <PackagePlus size={20} /> },
   { name: "ဖောက်သည်များ", path: "/customers", icon: <Users size={20} /> },
   { name: "ပို့ဆောင်မှုများ", path: "/deliveries", icon: <Truck size={20} /> },
   { name: "အော်ဒါများ", path: "/orders", icon: <ClipboardList size={20} /> },
@@ -191,7 +193,9 @@ const CustomerManagement = () => {
         <div className="p-6 flex flex-col h-full">
           <div className="flex items-center gap-2 mb-10">
             <img src={Logo} alt="Logo" className="w-10 h-10 object-contain" />
-            <span className="text-xl font-bold tracking-tighter text-indigo-400 uppercase italic">AzureMed hub</span>
+            <span className="text-xl font-bold tracking-tighter text-indigo-400 uppercase italic">
+                AzureMed<span className="text-blue-600"> hub</span>
+              </span>
           </div>
           <nav className="flex flex-col gap-2 flex-grow">
             {navItems.map((item) => (

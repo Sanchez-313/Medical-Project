@@ -5,8 +5,7 @@ import {
   Truck, CreditCard, Lock, CheckCircle, 
   Phone, Mail, X
 } from 'lucide-react';
-
-const API_BASE_URL = 'http://localhost:8000';
+import { authRequestJson } from '../../lib/api';
 
 const clearExpiredSession = () => {
   localStorage.removeItem('authToken');
@@ -16,7 +15,13 @@ const clearExpiredSession = () => {
 
 const CheckoutPage = () => {
   const outletContext = useOutletContext() || {};
-  const { cartItems = [], addOrder, clearCart, refreshStock } = outletContext;
+  const {
+    cartItems = [],
+    addOrder,
+    clearCart,
+    refreshStock,
+    cartHoldMinutes = 10,
+  } = outletContext;
   const shippingSectionRef = useRef(null);
 
   const [paymentMethod, setPaymentMethod] = useState('kpay');
@@ -165,33 +170,20 @@ const CheckoutPage = () => {
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/orders`, {
+      const data = await authRequestJson('/api/orders', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
+        token,
+        body: {
           payment_method: paymentMethod === 'kpay' ? 'kpay' : 'cod',
           shipping: { ...formData },
           items: cartItems.map((item) => ({
             product_id: Number(item.id),
             qty: Number(item.quantity) || 1,
           })),
-        }),
+        },
       });
 
-      const data = await response.json();
-      if (response.status === 401) {
-        clearExpiredSession();
-        setPaymentNotice({
-          type: 'error',
-          message: 'Your login session expired. Please sign in again and then confirm your order.',
-        });
-        return;
-      }
-
-      if (!response.ok || !data?.success) {
+      if (!data?.success) {
         setPaymentNotice({
           type: 'error',
           message: data?.message || 'Order could not be placed.',
@@ -226,10 +218,22 @@ const CheckoutPage = () => {
             ? 'Payment confirmed and order saved to the backend.'
             : 'Order confirmed and saved to the backend.',
       });
-    } catch {
+    } catch (error) {
+      if (
+        error?.status === 401 ||
+        String(error?.message || '').toLowerCase() === 'unauthorized'
+      ) {
+        clearExpiredSession();
+        setPaymentNotice({
+          type: 'error',
+          message: 'Your login session expired. Please sign in again and then confirm your order.',
+        });
+        return;
+      }
+
       setPaymentNotice({
         type: 'error',
-        message: 'Cannot reach backend order API. Please make sure the server is running.',
+        message: error?.message || 'Cannot reach backend order API. Please make sure the server is running.',
       });
     }
   };
@@ -242,6 +246,9 @@ const CheckoutPage = () => {
         <div className="mb-10">
           <h1 className="text-4xl font-black tracking-tight text-slate-900 mb-2">Checkout</h1>
           <p className="text-slate-500">Please provide your delivery information to complete the order.</p>
+          <div className="mt-4 inline-flex rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700">
+            Cart reservations expire after {cartHoldMinutes} minutes of inactivity.
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">

@@ -3,7 +3,7 @@ import fallbackProducts from "../components/ProductList/ProductList";
 const normalizeName = (value) =>
   String(value || "")
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim();
 
 const fallbackById = new Map(
@@ -23,16 +23,22 @@ const categoryMap = {
 export const fallbackCatalogProducts = fallbackProducts.map((product) => ({
   ...product,
   categoryLabel: categoryMap[String(product?.category)] || String(product?.category || "General"),
-}));
+})).sort((a, b) => {
+  const stockA = Number.isFinite(Number(a?.stock)) ? Number(a.stock) : Number.MAX_SAFE_INTEGER;
+  const stockB = Number.isFinite(Number(b?.stock)) ? Number(b.stock) : Number.MAX_SAFE_INTEGER;
+  return stockA - stockB || Number(a?.id || 0) - Number(b?.id || 0);
+});
 
 export function mapApiProduct(product) {
+  const resolvedId = Number(product?.id ?? product?.product_id);
   const fallback =
-    fallbackById.get(String(product?.id)) ||
+    fallbackById.get(String(resolvedId)) ||
     fallbackByName.get(normalizeName(product?.name));
 
   return {
-    id: Number(product?.id),
+    id: Number.isInteger(resolvedId) ? resolvedId : null,
     name: String(product?.name || fallback?.name || "Product"),
+    slug: String(product?.slug || ""),
     price: Number(product?.price_ks ?? fallback?.price ?? 0),
     category: String(product?.category || fallback?.category || "General"),
     categoryLabel:
@@ -46,5 +52,14 @@ export function mapApiProduct(product) {
         : null,
     description:
       String(product?.description || "").trim() || fallback?.description || "",
+    expiryDate: String(
+      product?.expiry_date ||
+      product?.expiryDate ||
+      product?.exp_date ||
+      fallback?.expiryDate ||
+      "",
+    ),
+    createdAt: String(product?.created_at || fallback?.createdAt || ""),
+    updatedAt: String(product?.updated_at || fallback?.updatedAt || ""),
   };
 }

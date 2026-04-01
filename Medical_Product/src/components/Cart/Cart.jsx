@@ -1,9 +1,15 @@
 import React from 'react'
-import { FaMinus, FaPlus, FaTrash } from 'react-icons/fa'
+import { Link, useLocation } from 'react-router-dom'
+import { FaClock, FaMinus, FaPlus, FaTrash } from 'react-icons/fa'
 
-const Cart = ({ activePannel, handleClose, items = [], onRemove, onUpdateQty, getProductStock }) => {
+const Cart = ({ activePannel, handleClose, items = [], onRemove, onUpdateQty, getProductStock, holdMinutes = 10 }) => {
+  const location = useLocation();
   const subtotal = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
   const isOpen = activePannel === 'cart';
+  const checkoutState = {
+    continueShoppingPath: location.pathname,
+    continueShoppingScrollY: window.scrollY,
+  };
   return (
     <div className={`flex flex-col justify-between gap-5 fixed top-0 right-0 bottom-0 z-[220] w-[400px] border-l border-zinc-300 py-7 transform transition-transform duration-300 bg-white
         ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
@@ -14,6 +20,16 @@ const Cart = ({ activePannel, handleClose, items = [], onRemove, onUpdateQty, ge
 
         {/* Cart Items */}
         <div className="flex-1 overflow-y-auto">
+          {items.length > 0 ? (
+            <div className="mx-5 mb-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold leading-5 text-amber-700">
+              <div className="flex items-center gap-2">
+                <FaClock className="shrink-0" />
+                <span>
+                  Cart stock is reserved for {holdMinutes} minutes. If you stay inactive, the item will be removed from cart and returned to stock.
+                </span>
+              </div>
+            </div>
+          ) : null}
           {items.length === 0 ? (
             <div className="px-10 py-12 text-center text-zinc-500">
               Your cart is empty.
@@ -83,7 +99,14 @@ const Cart = ({ activePannel, handleClose, items = [], onRemove, onUpdateQty, ge
         {/* Buttons */}
         <div className='flex gap-x-2 px-10'>
             <button className='bg-blue-600 text-white flex-1 h-[7vh] cursor-pointer active:bg-blue-700' onClick={handleClose}>Close</button>
-            <button className='bg-blue-600 text-white flex-1 h-[7vh] cursor-pointer active:bg-blue-700'>CheckOut</button>
+            <Link
+              to="/checkoutpage"
+              state={checkoutState}
+              onClick={handleClose}
+              className='bg-blue-600 text-white flex-1 h-[7vh] cursor-pointer active:bg-blue-700 inline-flex items-center justify-center'
+            >
+              CheckOut
+            </Link>
         </div>
     </div>
   )

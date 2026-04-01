@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\Auth;
+use App\Core\CartReservation;
 use App\Core\Database;
 use App\Core\Request;
 use App\Core\Response;
@@ -34,9 +35,10 @@ final class InventoryController extends Controller
             $params['category'] = $category;
         }
 
-        $sql .= ' ORDER BY id DESC';
+        $sql .= ' ORDER BY stock ASC, total_stock ASC, id ASC';
 
         $db = Database::connection();
+        CartReservation::releaseExpiredReservations($db);
         $stmt = $db->prepare($sql);
         $stmt->execute($params);
 

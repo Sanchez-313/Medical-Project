@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\Auth;
+use App\Core\CartReservation;
 use App\Core\Database;
 use App\Core\Request;
 use App\Core\Response;
@@ -20,6 +21,7 @@ final class CartController extends Controller
         }
 
         $db = Database::connection();
+        CartReservation::releaseExpiredReservations($db, (int) $actor['sub']);
         $stmt = $db->prepare(
             'SELECT
                 ci.product_id,
@@ -69,6 +71,7 @@ final class CartController extends Controller
         $db->beginTransaction();
 
         try {
+            CartReservation::releaseExpiredReservations($db, $userId);
             $product = Stock::fetchActiveProduct($db, $productId);
             if ($product === null) {
                 throw new \RuntimeException('product not found');
@@ -133,6 +136,7 @@ final class CartController extends Controller
         $db->beginTransaction();
 
         try {
+            CartReservation::releaseExpiredReservations($db, $userId);
             $currentQty = Stock::reservedQty($db, $userId, $productId);
             if ($currentQty === 0 && $nextQty > 0) {
                 throw new \RuntimeException('Cart item not found');
@@ -197,6 +201,7 @@ final class CartController extends Controller
         $db->beginTransaction();
 
         try {
+            CartReservation::releaseExpiredReservations($db, $userId);
             $currentQty = Stock::reservedQty($db, $userId, $productId);
             if ($currentQty <= 0) {
                 throw new \RuntimeException('Cart item not found');
@@ -233,6 +238,7 @@ final class CartController extends Controller
         $db->beginTransaction();
 
         try {
+            CartReservation::releaseExpiredReservations($db, (int) $actor['sub']);
             $stmt = $db->prepare('SELECT product_id, qty FROM cart_items WHERE user_id = :user_id');
             $stmt->execute(['user_id' => (int) $actor['sub']]);
             $items = $stmt->fetchAll();

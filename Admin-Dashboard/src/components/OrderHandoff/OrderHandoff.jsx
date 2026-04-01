@@ -13,6 +13,7 @@ import {
   MapPin,
   Phone,
   UserRound,
+  PackagePlus,
 } from "lucide-react";
 import Logo from "../../assets/Logo/logo.png";
 import { getOrders } from "../../lib/api";
@@ -20,6 +21,7 @@ import { getOrders } from "../../lib/api";
 const navItems = [
   { name: "ဒက်ရှ်ဘုတ်", path: "/overview", icon: <LayoutDashboard size={20} /> },
   { name: "ကုန်ပစ္စည်းစာရင်း", path: "/inventory", icon: <Package size={20} /> },
+  { name: "Restock", path: "/restock", icon: <PackagePlus size={20} /> },
   { name: "ဖောက်သည်များ", path: "/customers", icon: <Users size={20} /> },
   { name: "ပို့ဆောင်မှုများ", path: "/deliveries", icon: <Truck size={20} /> },
   { name: "အော်ဒါများ", path: "/orders", icon: <ClipboardList size={20} /> },
@@ -135,9 +137,9 @@ const OrderHandoff = () => {
         <div className="flex h-full flex-col p-6">
           <div className="mb-10 flex items-center gap-2">
             <img src={Logo} alt="Logo" className="h-10 w-10 object-contain" />
-            <span className="text-xl font-bold uppercase italic tracking-tighter text-indigo-400">
-              AzureMed<span className="text-blue-600"> hub</span>
-            </span>
+            <span className="text-xl font-bold tracking-tighter text-indigo-400 uppercase italic">
+                AzureMed<span className="text-blue-600"> hub</span>
+              </span>
           </div>
 
           <nav className="flex flex-grow flex-col gap-2">

@@ -1,14 +1,33 @@
-import * as tf from "@tensorflow/tfjs";
 import products from "../components/ProductList/ProductList";
 
 const MODEL_URL = "/ai/model.json";
 const METADATA_URL = "/ai/metadata.json";
-const DEFAULT_MIN_CONFIDENCE = 0.35;
+const DEFAULT_MIN_CONFIDENCE = 0.7;
+const TFJS_CDN_URL = "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js";
+const TFJS_UNAVAILABLE_MESSAGE =
+  "AI detection is unavailable right now because TensorFlow.js could not be loaded. Install the frontend dependency locally or allow CDN access, then try again.";
 
 let modelPromise;
 let metadataPromise;
+let tfPromise;
 
 const LABEL_PRODUCT_ALIASES = [
+  {
+    labels: ["generlog oral"],
+    productId: 80,
+  },
+  {
+    labels: ["gentalene c cream", "gentalene-c cream"],
+    productId: 81,
+  },
+  {
+    labels: ["win methylated spirit", "win methylated spirit )", "win ( methylated spirit )"],
+    productId: 82,
+  },
+  {
+    labels: ["enervon c", "enervon-c"],
+    productId: 83,
+  },
   {
     labels: ["taung gyi", "mahar phyay say"],
     productName: "Taunggyi Mahar Phyay Say (Pink)",
@@ -17,13 +36,53 @@ const LABEL_PRODUCT_ALIASES = [
     labels: ["taung kyar pan ar toe say"],
     productName: "Taung Kyar Pan Ar Toe Say",
   },
+  {
+    labels: ["ab keto hair shampoo", "ab-keto hair shampoo", "ab keto"],
+    productName: "Keto Shampoo 75ml",
+  },
+  {
+    labels: ["rv ors oral rehydration salts blue", "rv ors", "oral rehydration salts"],
+    productName: "Oral Rehydration Salts (ORS)",
+  },
+  {
+    labels: ["doi kyaung thar", "dhoet kyaung thar", "ဒို့ ကျောင်းသား", "ဒို့ကျောင်းသား"],
+    productName: "DhoetKyaungThar",
+  },
+  {
+    labels: ["á€¥á€®á€¸á€á€»á€­á€”á€ºá€á€®", "u chain te"],
+    productId: 79,
+  },
+  {
+    labels: ["axiona"],
+    productId: 84,
+  },
+  {
+    labels: ["ribovit tablet"],
+    productId: 85,
+  },
+  {
+    labels: ["kotase"],
+    productId: 86,
+  },
+  {
+    labels: ["multivitaminus"],
+    productId: 87,
+  },
+  {
+    labels: ["sezo b cream", "sezo-b cream"],
+    productId: 88,
+  },
+  {
+    labels: ["fungiderm cream"],
+    productId: 89,
+  },
 ];
 
 function normalizeText(value) {
   return String(value || "")
     .toLowerCase()
     .replace(/&/g, " and ")
-    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim();
 }
 
@@ -74,9 +133,11 @@ function mapLabelToProduct(label) {
   );
 
   if (aliasMatch) {
-    const directProduct = products.find(
-      (product) => normalizeText(product.name) === normalizeText(aliasMatch.productName),
-    );
+    const directProduct = aliasMatch.productId
+      ? products.find((product) => Number(product.id) === Number(aliasMatch.productId))
+      : products.find(
+          (product) => normalizeText(product.name) === normalizeText(aliasMatch.productName),
+        );
     if (directProduct) {
       return directProduct;
     }
@@ -105,15 +166,76 @@ async function loadMetadata() {
   return metadataPromise;
 }
 
+function getBrowserTf() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return window.tf || null;
+}
+
+async function loadTensorflow() {
+  const existingTf = getBrowserTf();
+  if (existingTf) {
+    return existingTf;
+  }
+
+  if (!tfPromise) {
+    tfPromise = new Promise((resolve, reject) => {
+      if (typeof document === "undefined") {
+        reject(new Error("TensorFlow.js requires a browser environment."));
+        return;
+      }
+
+      const existingScript = document.querySelector('script[data-tfjs-cdn="true"]');
+      if (existingScript) {
+        existingScript.addEventListener("load", () => {
+          const loadedTf = getBrowserTf();
+          if (loadedTf) {
+            resolve(loadedTf);
+          } else {
+            reject(new Error("TensorFlow.js loaded but was not initialized."));
+          }
+        }, { once: true });
+        existingScript.addEventListener("error", () => {
+          reject(new Error(TFJS_UNAVAILABLE_MESSAGE));
+        }, { once: true });
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = TFJS_CDN_URL;
+      script.async = true;
+      script.dataset.tfjsCdn = "true";
+      script.onload = () => {
+        const loadedTf = getBrowserTf();
+        if (loadedTf) {
+          resolve(loadedTf);
+          return;
+        }
+
+        reject(new Error("TensorFlow.js loaded but was not initialized."));
+      };
+      script.onerror = () => {
+        reject(new Error(TFJS_UNAVAILABLE_MESSAGE));
+      };
+      document.head.appendChild(script);
+    });
+  }
+
+  return tfPromise;
+}
+
 async function loadModel() {
   if (!modelPromise) {
-    modelPromise = tf.loadLayersModel(MODEL_URL);
+    modelPromise = loadTensorflow().then((tf) => tf.loadLayersModel(MODEL_URL));
   }
 
   return modelPromise;
 }
 
-function makeInputTensor(imageSource, imageSize) {
+async function makeInputTensor(imageSource, imageSize) {
+  const tf = await loadTensorflow();
   return tf.tidy(() => {
     const pixels = tf.browser.fromPixels(imageSource).toFloat();
     const resized = tf.image.resizeBilinear(pixels, [imageSize, imageSize], true);
@@ -132,7 +254,7 @@ export async function detectMedicineImage(imageSource, { minConfidence = DEFAULT
   const imageSize = Number(metadata?.imageSize) || 224;
   const labels = Array.isArray(metadata?.labels) ? metadata.labels : [];
 
-  const inputTensor = makeInputTensor(imageSource, imageSize);
+  const inputTensor = await makeInputTensor(imageSource, imageSize);
   const output = model.predict(inputTensor);
   const probabilities = await output.data();
 
@@ -158,6 +280,6 @@ export async function detectMedicineImage(imageSource, { minConfidence = DEFAULT
     metadata,
     predictions,
     bestPrediction:
-      bestPrediction && bestPrediction.confidence >= minConfidence ? bestPrediction : bestPrediction,
+      bestPrediction && bestPrediction.confidence >= minConfidence ? bestPrediction : null,
   };
 }

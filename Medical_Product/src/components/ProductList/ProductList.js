@@ -50,6 +50,7 @@ import SandaMin from '../../assets/Myamedicines/Sanda Min Vision Supplement 40g.
 import SandaMon from '../../assets/Myamedicines/Sanda Mon Vision Supplement.png'
 import ShweOhhWaiGinshauk from '../../assets/Myamedicines/Shwe Ohh Wai Ginshauk Bot (Small).png'
 import WoneWannပျားနနွင် from '../../assets/Myamedicines/Wone Wann ပျားနနွင်း Turmeric Honey Tablets.png'
+import UChainTe from '../../assets/Myamedicines/ဦးချိန်တီ(U Chain Te).png'
 
 import Stethoscope from '../../assets/Equipments/Stethoscope.png'
 import MedicineBox from '../../assets/Equipments/MedicineBox.png'
@@ -76,13 +77,22 @@ import Woods_Peppermint_Antitussive from "../../assets/Engmedicines/Fever,Cough,
 import Omega_3 from "../../assets/Engmedicines/Fever,Cough,Cold/Aska Deep Sea Fish Oil Omega-3 1000 mg.png"
 import Brand_Essence_Chicken from "../../assets/Engmedicines/Fever,Cough,Cold/Brand's Essence of Chicken.png"
 import Cevit from "../../assets/Engmedicines/Fever,Cough,Cold/Cevit.png"
+import OralRehydrationSalts from '../../assets/Engmedicines/personal care/Oral Rehydration Salts (ORS).png'
 import Ensure_Gold_Strawberry_Flavor from "../../assets/Engmedicines/Fever,Cough,Cold/Ensure Gold 850 g (Strawberry Flavor).png"
+import Fungiderm from '../../assets/Engmedicines/personal care/fungiderm.png'
+import Sezo_B from '../../assets/Engmedicines/personal care/SEZO-B.png'
+import Gentalene_C from '../../assets/Engmedicines/personal care/Gentalene-C Cream.png'
+import Generlog_Oral from '../../assets/Engmedicines/Fever,Cough,Cold/Generlog Oral.png'
+import Axiona from '../../assets/Engmedicines/Fever,Cough,Cold/Axiona.png'
+import Kotase from '../../assets/Engmedicines/Fever,Cough,Cold/Kotase.png'
+import Ribovit from '../../assets/Engmedicines/Fever,Cough,Cold/Ribovit Tablet.png'
+import Enervon_C from '../../assets/Engmedicines/Fever,Cough,Cold/enervon-c.png'
 
 
 const normalizeName = (name) =>
   String(name || "")
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim();
 
 const descriptionByName = {
@@ -125,11 +135,24 @@ const descriptionByName = {
   "aungtakhon": "Traditional herbal remedy used for body aches and general wellness. Use as directed.",
   "aye nyein thida neurotonic 100g": "Traditional tonic used to support nerve comfort and relaxation. Use as directed.",
   "dhoetkyaungthar": "Traditional herbal remedy for digestive comfort and general wellness. Use as directed.",
+  "generlog oral": "Oral antibiotic medicine commonly used for bacterial infections. Use only as directed by the label or a healthcare professional.",
+  "gentalene c cream": "Topical cream commonly used for inflamed or irritated skin conditions. Apply as directed.",
+  "gentalene cream": "Topical cream commonly used for inflamed or irritated skin conditions. Apply as directed.",
+  "win methylated spirit": "Topical antiseptic spirit used for external cleaning and hygiene support. For external use only.",
+  "enervon c": "Multivitamin supplement with vitamin C to support daily wellness and energy.",
+  "axiona": "Pain relief medicine commonly used for mild to moderate aches and fever support. Use as directed.",
+  "ribovit tablet": "Vitamin B complex supplement used to support energy and nutritional balance.",
+  "kotase": "Digestive support medicine commonly used for stomach comfort and digestion support.",
+  "multivitaminus": "Multivitamin supplement used to support daily nutritional needs and general wellness.",
+  "sezo b cream": "Topical cream used for minor skin irritation and surface discomfort. Apply as directed.",
+  "fungiderm cream": "Antifungal cream commonly used for fungal skin infections and itching. Apply as directed.",
+  "ဒို့ ကျောင်းသား": "Traditional herbal remedy for digestive comfort and general wellness. Use as directed.",
   "monywar sa yar moe laxative 64g": "Traditional herbal laxative to support bowel regularity. Use as directed.",
   "pan wutt hmone a pu nyein say bot": "Traditional herbal oil/balm to soothe aches and promote relaxation. Use as directed.",
   "taung kyar pan ar toe say": "Traditional herbal remedy for muscle and joint comfort. Use as directed.",
   "two snakes ring worm lotion 6 ml": "Topical lotion for skin irritation such as ringworm. Use as directed.",
   "taunggyi mahar phyay say pink": "Traditional herbal remedy for general wellness and vitality. Use as directed.",
+  "ဦးချိန်တီ(U Chain Te)" : "Headaches, minor fevers, stomach upset, and fatigue.",
   "kyarnayapunyeinsay": "Traditional herbal remedy to soothe aches and tension. Use as directed.",
   "kyarnaymaharphyaysay": "Traditional herbal remedy for muscle and joint comfort. Use as directed.",
   "shwe ohh wai ginshauk bot small": "Traditional herbal liquid for general wellness support. Use as directed.",
@@ -239,7 +262,18 @@ const products = [
   { id: 75, name: "Sanda Mon Vision Supplement", price: 1750, category: 'MyanmarMedicine', image: SandaMon },
   { id: 76, name: "Shwe Ohh Wai Ginshauk Bot (Small)", price: 2100, category: 'MyanmarMedicine', image: ShweOhhWaiGinshauk },
   { id: 77, name: "Wone Wann ပျားနနွင်း Turmeric Honey Tablets", price: 2000, category: 'MyanmarMedicine', image: WoneWannပျားနနွင် },
-  { id: 78, name: "Oral Rehydration Salts (ORS)", price: 1200, category: 'EnglishMedicine', image: Cevit },
+  { id: 78, name: "Oral Rehydration Salts (ORS)", price: 900, category: 'EnglishMedicine', image: OralRehydrationSalts },
+  { id: 79, name: "ဦးချိန်တီ(U Chain Te)", price: 2200, category: 'MyanmarMedicine', image: UChainTe, stock: 15, expiryDate: '2027-06-30' },
+  { id: 80, name: 'Generlog Oral', price: 4200, category: 'EnglishMedicine', image: Generlog_Oral, stock: 18, expiryDate: '2027-08-31' },
+  { id: 81, name: 'Gentalene-C Cream', price: 3900, category: 'EnglishMedicine', image: Gentalene_C, stock: 14, expiryDate: '2027-07-31' },
+  { id: 82, name: 'Win (Methylated Spirit)', price: 2500, category: 'MyanmarMedicine', image: Dextracin_Eye_Ear_Drops, stock: 10, expiryDate: '2028-01-31' },
+  { id: 83, name: 'Enervon-C', price: 6500, category: 'EnglishMedicine', image: Enervon_C, stock: 22, expiryDate: '2027-11-30' },
+  { id: 84, name: 'Axiona', price: 2800, category: 'EnglishMedicine', image: Axiona, stock: 16, expiryDate: '2027-09-30' },
+  { id: 85, name: 'Ribovit Tablet', price: 4800, category: 'EnglishMedicine', image: Ribovit, stock: 12, expiryDate: '2027-10-31' },
+  { id: 86, name: 'Kotase', price: 3000, category: 'EnglishMedicine', image: Kotase, stock: 9, expiryDate: '2027-05-31' },
+  { id: 87, name: 'Multivitaminus', price: 5200, category: 'EnglishMedicine', image: Cevit, stock: 20, expiryDate: '2027-12-31' },
+  { id: 88, name: 'SEZO-B Cream', price: 3600, category: 'EnglishMedicine', image: Sezo_B, stock: 11, expiryDate: '2027-08-31' },
+  { id: 89, name: 'Fungiderm Cream', price: 4300, category: 'EnglishMedicine', image: Fungiderm, stock: 13, expiryDate: '2027-10-31' }
 ]
 
 export const productsWithDescriptions = products.map((product) => {

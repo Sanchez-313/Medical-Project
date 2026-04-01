@@ -26,8 +26,8 @@ const Footer = () => {
           </Link>
 
           <p className="text-zinc-600 mt-6 max-w-[350px]">
-            Lorem Ipsum is simply dummy text of the printing and typesetting
-            industry.
+            AzureMed Hub helps customers discover trusted medicines, practical
+            equipment, and healthcare support in one simple storefront.
           </p>
 
           <p className="text-zinc-800 mt-6">
@@ -40,14 +40,14 @@ const Footer = () => {
             <h5 className="text-zinc-800 text-2xl font-bold">Company</h5>
           </li>
           <li className="mt-6">
-            <a href="#" className="text-zinc-800 hover:text-indigo-500">
+            <NavLink to="/aboutus" className="text-zinc-800 hover:text-indigo-500">
               About
-            </a>
+            </NavLink>
           </li>
           <li className="mt-6">
-            <a href="#" className="text-zinc-800 hover:text-indigo-500">
+            <NavLink to="/Process" className="text-zinc-800 hover:text-indigo-500">
               FAQ's
-            </a>
+            </NavLink>
           </li>
         </ul>
 
@@ -56,19 +56,19 @@ const Footer = () => {
             <h5 className="text-zinc-800 text-2xl font-bold">Support</h5>
           </li>
           <li className="mt-6">
-            <a href="#" className="text-zinc-800 hover:text-indigo-500">
+            <NavLink to="/Process" className="text-zinc-800 hover:text-indigo-500">
               Support Center
-            </a>
+            </NavLink>
           </li>
           <li className="mt-6">
-            <a href="#" className="text-zinc-800 hover:text-indigo-500">
+            <NavLink to="/reviews" className="text-zinc-800 hover:text-indigo-500">
               Feedback
-            </a>
+            </NavLink>
           </li>
           <li className="mt-6">
-            <a href="#" className="text-zinc-800 hover:text-indigo-500">
+            <NavLink to="/Process" className="text-zinc-800 hover:text-indigo-500">
               Contact Us
-            </a>
+            </NavLink>
           </li>
         </ul>
 

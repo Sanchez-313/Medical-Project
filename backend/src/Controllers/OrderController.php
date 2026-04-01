@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\Auth;
+use App\Core\CartReservation;
 use App\Core\Database;
 use App\Core\Request;
 use App\Core\Response;
@@ -101,6 +102,7 @@ final class OrderController extends Controller
         $db->beginTransaction();
 
         try {
+            CartReservation::releaseExpiredReservations($db, (int) $payload['sub']);
             $subtotal = 0;
             foreach ($items as $item) {
                 $productId = (int) ($item['product_id'] ?? 0);

@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS products (
     category TEXT NOT NULL,
     price_ks INTEGER NOT NULL,
     stock INTEGER NOT NULL DEFAULT 0,
+    expiry_date TEXT NULL,
     image_url TEXT NULL,
     description TEXT NULL,
     is_active INTEGER NOT NULL DEFAULT 1,

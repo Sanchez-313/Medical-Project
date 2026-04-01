@@ -36,6 +36,7 @@ $router->post('/api/auth/login', [AuthController::class, 'login']);
 
 $router->get('/api/products', [ProductController::class, 'index']);
 $router->get('/api/products/{id}', [ProductController::class, 'show']);
+$router->post('/api/products/detected', [ProductController::class, 'upsertDetected']);
 
 $router->get('/api/cart', [CartController::class, 'index']);
 $router->delete('/api/cart', [CartController::class, 'clear']);

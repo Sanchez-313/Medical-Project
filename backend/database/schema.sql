@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS products (
     category VARCHAR(100) NOT NULL,
     price_ks INT NOT NULL,
     stock INT NOT NULL DEFAULT 0,
+    expiry_date DATE NULL,
     image_url TEXT NULL,
     description TEXT NULL,
     is_active TINYINT(1) NOT NULL DEFAULT 1,

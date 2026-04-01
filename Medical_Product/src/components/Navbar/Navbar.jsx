@@ -66,7 +66,7 @@ export const Navbar = ({ searchTerm = "", setSearchTerm, handlePanel, cartCount 
 
   const linkStyle = ({ isActive }) =>
     isActive
-      ? "text-blue-600 font-bold border-b-2 border-blue-600 pb-1"
+      ? "text-blue-600 font-bold border-b-2 border-dotted border-blue-400 pb-1"
       : "text-zinc-800 hover:text-blue-500 transition-colors";
   const getContinueShoppingState = () => {
     const disallowed = new Set(["/cart", "/checkoutpage"]);
@@ -114,7 +114,7 @@ export const Navbar = ({ searchTerm = "", setSearchTerm, handlePanel, cartCount 
         </button>
 
         {/* Desktop Menu */}
-        <ul className="hidden min-w-0 flex-1 items-center justify-end gap-x-5 pl-8 text-[12px] font-bold uppercase tracking-[0.12em] md:flex lg:gap-x-7 lg:pl-12">
+        <ul className="hidden min-w-0 flex-1 items-center justify-end gap-x-5 pl-8 text-[12px] font-bold uppercase tracking-[0.12em] md:flex lg:gap-x-4 lg:pl-12">
           <li>
             <NavLink to="/" className={linkStyle} onClick={() => scrollTopIfNonProductPath("/")}>Home</NavLink>
           </li>
@@ -146,12 +146,13 @@ export const Navbar = ({ searchTerm = "", setSearchTerm, handlePanel, cartCount 
             onMouseLeave={() => setIsSupportDropdownOpen(false)}
           >
             <button className="flex items-center gap-1 text-zinc-800 hover:text-blue-500 transition-colors py-2 text-[12px]">
-              Support & Feedback{" "}
+              About Us{" "}
               <FaChevronDown className={`text-[10px] transition-transform ${isSupportDropdownOpen ? "rotate-180" : ""}`} />
             </button>
 
             {isSupportDropdownOpen && (
               <div className="absolute top-full left-0 w-64 bg-white border border-zinc-100 shadow-2xl rounded-2xl py-4 flex flex-col z-[60] animate-in fade-in slide-in-from-top-2">
+                <NavLink to="/aboutus" className="px-6 py-3 hover:bg-blue-50 hover:text-blue-600 transition-colors">About</NavLink>
                 <NavLink to="/Process" className="px-6 py-3 hover:bg-blue-50 hover:text-blue-600 transition-colors">Support</NavLink>
                 <NavLink to="/reviews" className="px-6 py-3 hover:bg-blue-50 hover:text-blue-600 transition-colors">Reviews</NavLink>
               </div>
@@ -172,11 +173,11 @@ export const Navbar = ({ searchTerm = "", setSearchTerm, handlePanel, cartCount 
             </NavLink>
           </li>
           
-          <div className="h-6 w-[1px] bg-slate-200 mx-2"></div>
+          {/* <div className="h-6 w-[1px] bg-slate-200 mx-2"></div> */}
 
           {authUser ? (
             <>
-              <li className="text-[12px] text-zinc-700 normal-case tracking-normal">
+              <li className="text-[12px] text-zinc-700 normal-case tracking-normal p-2 rounded-lg shadow-xl bg-gray-300">
                 Hi, {authUser.name}
               </li>
               <li>
@@ -253,6 +254,7 @@ export const Navbar = ({ searchTerm = "", setSearchTerm, handlePanel, cartCount 
         <div className={`fixed inset-0 bg-slate-400/95 z-[50] md:hidden transition-all duration-500 ease-in-out ${showMenu ? "translate-x-0 opacity-100" : "translate-x-full opacity-0"}`}>
           <div className="flex flex-col items-center justify-center h-full gap-y-6 px-10">
              <NavLink to="/" onClick={() => { scrollTopIfNonProductPath("/"); toggleMenu(); }} className="text-2xl font-bold text-slate-800">Home</NavLink>
+             <NavLink to="/aboutus" onClick={() => { scrollTopIfNonProductPath("/aboutus"); toggleMenu(); }} className="text-2xl font-bold text-slate-800">About</NavLink>
              <NavLink to="/allproducts" onClick={toggleMenu} className="text-2xl font-bold text-slate-800">Pharmacy Shop</NavLink>
              <div className="text-2xl font-bold text-slate-800">Support & Feedback</div>
              <NavLink to="/orders" onClick={() => { scrollTopIfNonProductPath("/orders"); toggleMenu(); }} className="text-2xl font-bold text-slate-800">

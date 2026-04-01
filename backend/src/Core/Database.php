@@ -11,6 +11,35 @@ final class Database
 {
     private static ?PDO $pdo = null;
 
+    private static function sqliteColumnExists(PDO $pdo, string $table, string $column): bool
+    {
+        $stmt = $pdo->query(sprintf('PRAGMA table_info(%s)', $table));
+        $columns = $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
+
+        foreach ($columns as $definition) {
+            if (($definition['name'] ?? null) === $column) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static function mysqlColumnExists(PDO $pdo, string $database, string $table, string $column): bool
+    {
+        $stmt = $pdo->prepare(
+            'SELECT COUNT(*) FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = :database AND TABLE_NAME = :table AND COLUMN_NAME = :column'
+        );
+        $stmt->execute([
+            'database' => $database,
+            'table' => $table,
+            'column' => $column,
+        ]);
+
+        return (int) $stmt->fetchColumn() > 0;
+    }
+
     private static function ensureSchemaExtensions(PDO $pdo, array $cfg): void
     {
         if (($cfg['driver'] ?? 'sqlite') === 'sqlite') {
@@ -27,6 +56,11 @@ final class Database
                     FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
                 )'
             );
+
+            if (!self::sqliteColumnExists($pdo, 'products', 'expiry_date')) {
+                $pdo->exec('ALTER TABLE products ADD COLUMN expiry_date TEXT NULL');
+            }
+
             return;
         }
 
@@ -43,6 +77,10 @@ final class Database
                 CONSTRAINT fk_cart_items_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
         );
+
+        if (!self::mysqlColumnExists($pdo, (string) ($cfg['mysql']['database'] ?? ''), 'products', 'expiry_date')) {
+            $pdo->exec('ALTER TABLE products ADD COLUMN expiry_date DATE NULL AFTER stock');
+        }
     }
 
     private static function sqlitePath(array $cfg): string

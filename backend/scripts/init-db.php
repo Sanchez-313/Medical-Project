@@ -31,7 +31,7 @@ function load_products_from_frontend(): array
         return [];
     }
 
-    $pattern = '/\{\s*id:\s*(\d+),\s*name:\s*([\'"])(.*?)\2,\s*price:\s*(\d+),\s*category:\s*([\'"])(.*?)\5,\s*image:\s*[^}]+\}/s';
+    $pattern = '/\{\s*id:\s*(\d+),\s*name:\s*([\'"])(.*?)\2,\s*price:\s*(\d+),\s*category:\s*([\'"])(.*?)\5,\s*image:\s*[^}]*?(?:,\s*stock:\s*(\d+))?(?:,\s*expiryDate:\s*([\'"])(.*?)\8)?\s*\}/s';
     preg_match_all($pattern, $source, $matches, PREG_SET_ORDER);
 
     $rows = [];
@@ -40,12 +40,14 @@ function load_products_from_frontend(): array
         $name = trim((string) $match[3]);
         $price = (int) $match[4];
         $category = trim((string) $match[6]);
+        $stock = isset($match[7]) && $match[7] !== '' ? (int) $match[7] : null;
+        $expiryDate = trim((string) ($match[9] ?? ''));
 
         if ($id <= 0 || $name === '' || $price <= 0 || $category === '') {
             continue;
         }
 
-        $seedStock = (($id * 11) % 250) + 15;
+        $seedStock = $stock ?? ((($id * 11) % 250) + 15);
         if (strtolower($name) === strtolower('Oral Rehydration Salts (ORS)')) {
             $seedStock = 0;
         }
@@ -57,6 +59,7 @@ function load_products_from_frontend(): array
             'category' => $category,
             'price_ks' => $price,
             'stock' => $seedStock,
+            'expiry_date' => $expiryDate !== '' ? $expiryDate : null,
             'image_url' => null,
             'description' => 'Seeded from frontend catalog',
         ];
@@ -113,7 +116,7 @@ foreach ($users as [$name, $email, $password, $role]) {
     ]);
 }
 
-$productStmt = $db->prepare('INSERT INTO products (id, name, slug, category, price_ks, stock, image_url, description) VALUES (:id, :name, :slug, :category, :price_ks, :stock, :image_url, :description)');
+$productStmt = $db->prepare('INSERT INTO products (id, name, slug, category, price_ks, stock, expiry_date, image_url, description) VALUES (:id, :name, :slug, :category, :price_ks, :stock, :expiry_date, :image_url, :description)');
 $products = load_products_from_frontend();
 
 if ($products === []) {
@@ -130,6 +133,7 @@ foreach ($products as $row) {
         'category' => $row['category'],
         'price_ks' => $row['price_ks'],
         'stock' => $row['stock'],
+        'expiry_date' => $row['expiry_date'],
         'image_url' => $row['image_url'],
         'description' => $row['description'],
     ]);

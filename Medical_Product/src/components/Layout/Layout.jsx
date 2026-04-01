@@ -9,6 +9,7 @@ import { authRequestJson, requestJson } from "../../lib/api";
 import { mapApiProduct } from "../../lib/productCatalog";
 
 const STORAGE_PREFIX = "azuremed";
+const CART_HOLD_MINUTES = 10;
 
 const parseAuthUser = () => {
   try {
@@ -337,6 +338,11 @@ const Layout = () => {
   };
 
   const updateCartQuantity = async (id, nextQty) => {
+    if (Number(nextQty) <= 0) {
+      await removeFromCart(id);
+      return;
+    }
+
     const targetId = normalizeId(id);
     const previousItems = cartItems;
     let requestedQtyValue = null;
@@ -443,6 +449,26 @@ const Layout = () => {
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, []);
+
+  useEffect(() => {
+    if (!authIdentity) return undefined;
+
+    const intervalId = window.setInterval(() => {
+      syncBackendCart();
+    }, 30000);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        syncBackendCart();
+      }
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [authIdentity]);
 
   useEffect(() => {
     const restoreScrollY = location.state?.restoreScrollY;
@@ -558,6 +584,7 @@ const Layout = () => {
         onRemove={removeFromCart}
         onUpdateQty={updateCartQuantity}
         getProductStock={getProductStock}
+        holdMinutes={CART_HOLD_MINUTES}
       />
       <Wishlist
         activePannel={activePanel}
@@ -589,6 +616,7 @@ const Layout = () => {
           refreshStock: loadStock,
           clearCart,
           addOrder,
+          cartHoldMinutes: CART_HOLD_MINUTES,
         }}
       />
       <Footer />
