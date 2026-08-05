@@ -4,6 +4,13 @@ import StaffTodoList from "@/components/StaffTodoList";
 import StaffAttendanceCard from "@/components/StaffAttendanceCard";
 import StaffQuickActions from "@/components/StaffQuickActions";
 
+// The parent layout's getServerSession() call doesn't reliably signal
+// dynamic rendering to Next's static analysis (it's wrapped several layers
+// deep, not a direct cookies()/headers() call) — without this, the page
+// gets silently build-time prerendered, which tries to connect to the DB at
+// build time and fails on hosts (Vercel) that can't reach it.
+export const dynamic = "force-dynamic";
+
 /**
  * Staff stock view — never selects cost_price_ks or revenue; this is a
  * different query from app/admin, not the same one with fields hidden.

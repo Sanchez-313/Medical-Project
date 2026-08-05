@@ -4,6 +4,11 @@ import { authOptions } from "@/lib/auth";
 import pool from "@/config/db";
 import type { RowDataPacket } from "mysql2";
 
+// Explicit, not relying on searchParams/getServerSession usage alone to
+// signal dynamic rendering to Next — a build-time DB connection to a host
+// unreachable from Vercel's build servers (like localhost) is fatal either way.
+export const dynamic = "force-dynamic";
+
 /** Ported from Medical_Product/src/components/Orders/Orders.jsx ("Purchase Bills"). */
 export default async function PurchaseBillsPage({
   searchParams,

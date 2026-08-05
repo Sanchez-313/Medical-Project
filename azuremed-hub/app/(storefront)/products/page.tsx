@@ -9,6 +9,11 @@ const BANNER_ART: Record<string, string> = {
   "Medical Equipment": "/images/categories/medical-equipment.png",
 };
 
+// No auth/session call here for Next to detect as a "dynamic API", so it
+// gets silently build-time prerendered otherwise — which tries to connect
+// to the DB at build time and fails on hosts (Vercel) that can't reach it.
+export const dynamic = "force-dynamic";
+
 export default async function ProductsPage({
   searchParams,
 }: {

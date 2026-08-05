@@ -5,6 +5,11 @@ import pool from "@/config/db";
 import SupportQueryForm from "@/components/SupportQueryForm";
 import type { RowDataPacket } from "mysql2";
 
+// Explicit, not relying on getServerSession usage alone to signal dynamic
+// rendering to Next — a build-time DB connection to a host unreachable from
+// Vercel's build servers (like localhost) is fatal either way.
+export const dynamic = "force-dynamic";
+
 const STATUS_BADGE: Record<string, string> = {
   open: "bg-amber-100 text-amber-700",
   answered: "bg-emerald-100 text-emerald-700",
