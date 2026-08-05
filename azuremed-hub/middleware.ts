@@ -1,6 +1,6 @@
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import type { NextRequestWithAuth } from "next-auth/middleware";
 import { checkRateLimit, clientIp } from "@/lib/rateLimit";
 
 // Brute-force / mass-registration protection on the two public auth
@@ -51,7 +51,7 @@ function applySecurityHeaders(response: NextResponse): NextResponse {
 }
 
 export default withAuth(
-  function middleware(req: NextRequest & { nextauth?: { token?: { role?: string } } }) {
+  function middleware(req: NextRequestWithAuth) {
     const { pathname } = req.nextUrl;
 
     if (req.method === "POST" && RATE_LIMITED_PATHS.some((path) => pathname.startsWith(path))) {
@@ -67,8 +67,7 @@ export default withAuth(
       }
     }
 
-    const role = (req as NextRequest & { nextauth: { token?: { role?: string } } }).nextauth
-      ?.token?.role;
+    const role = req.nextauth.token?.role;
 
     const rule = ROUTE_RULES.find((r) => pathname.startsWith(r.prefix));
     if (rule && (!role || !rule.roles.includes(role))) {
