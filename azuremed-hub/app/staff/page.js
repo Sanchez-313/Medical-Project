@@ -1,85 +1,97 @@
 import pool from "@/config/db";
+import { Package, AlertTriangle } from "lucide-react";
+import StaffTodoList from "@/components/StaffTodoList";
+import StaffAttendanceCard from "@/components/StaffAttendanceCard";
+import StaffQuickActions from "@/components/StaffQuickActions";
 
 /**
- * Staff dashboard — Server Component. Note the SELECT list below never
- * includes selling cost, margin, or company-wide revenue: this is a
- * different query from app/admin/page.js, not the same query with fields
- * hidden in the UI, so there is no path where that data reaches a staff
- * session even via devtools/network tab.
+ * Staff stock view — never selects cost_price_ks or revenue; this is a
+ * different query from app/admin, not the same one with fields hidden.
  */
 export default async function StaffDashboardPage() {
   const [stockRows] = await pool.query(
     `SELECT id, name, sku, category, selling_price_ks, stock_qty, status
      FROM medicines
      WHERE is_active = 1
-     ORDER BY name ASC
-     LIMIT 25`
+     ORDER BY name ASC`
   );
 
-  const [recentSales] = await pool.query(
-    `SELECT sale_code, customer_name, total_ks, payment_method, created_at
-     FROM sales
-     ORDER BY created_at DESC
-     LIMIT 10`
-  );
+  const lowStockCount = stockRows.filter((item) => item.status === "low").length;
 
   return (
-    <div className="space-y-8">
-      <h1 className="text-2xl font-semibold">Staff Dashboard</h1>
-      <p className="text-sm text-slate-500">
-        Operational view only — pricing shown is the customer-facing selling
-        price. Cost price and revenue totals are not available here.
-      </p>
+    <div>
+      <div className="mb-8">
+        <h1 className="text-3xl font-black tracking-tight text-slate-900">ကုန်ပစ္စည်းစတော့</h1>
+        <p className="pt-3 text-slate-500">
+          Operational stock view. Cost price and revenue totals are owner-only and not shown here.
+        </p>
+      </div>
 
-      <section>
-        <h2 className="mb-2 text-lg font-medium">Stock Availability</h2>
-        <table className="w-full text-sm">
+      <div className="grid grid-cols-2 gap-6 mb-8">
+        <div className="flex items-center gap-5 rounded-[2rem] border border-slate-100 bg-white p-6 shadow-sm">
+          <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-blue-50">
+            <Package className="text-blue-500" />
+          </div>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Products Tracked</p>
+            <p className="text-2xl font-black tracking-tighter text-slate-900">{stockRows.length}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-5 rounded-[2rem] border border-slate-100 bg-white p-6 shadow-sm">
+          <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-orange-50">
+            <AlertTriangle className="text-orange-500" />
+          </div>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Low Stock Items</p>
+            <p className="text-2xl font-black tracking-tighter text-slate-900">{lowStockCount}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <StaffTodoList />
+        <StaffAttendanceCard />
+      </div>
+      <div className="mb-8">
+        <StaffQuickActions />
+      </div>
+
+      <div id="stock" className="overflow-hidden rounded-[2.5rem] border border-slate-100 bg-white shadow-sm">
+        <table className="w-full text-left">
           <thead>
-            <tr className="text-left text-slate-500">
-              <th className="py-2">Medicine</th>
-              <th>SKU</th>
-              <th>Price (Ks)</th>
-              <th>Stock</th>
-              <th>Status</th>
+            <tr className="border-b border-slate-50 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">
+              <th className="px-8 py-5">Medicine</th>
+              <th className="px-6 py-5">SKU</th>
+              <th className="px-6 py-5">Category</th>
+              <th className="px-6 py-5">Price (Ks)</th>
+              <th className="px-6 py-5">Stock</th>
+              <th className="px-6 py-5">Status</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-slate-50">
             {stockRows.map((item) => (
-              <tr key={item.id} className="border-t border-slate-200 dark:border-slate-800">
-                <td className="py-2">{item.name}</td>
-                <td>{item.sku}</td>
-                <td>{Number(item.selling_price_ks).toLocaleString()}</td>
-                <td>{item.stock_qty}</td>
-                <td>{item.status}</td>
+              <tr key={item.id} className="hover:bg-slate-50/50">
+                <td className="px-8 py-5 text-sm font-black text-slate-800">{item.name}</td>
+                <td className="px-6 py-5 text-xs font-bold text-slate-500">{item.sku}</td>
+                <td className="px-6 py-5 text-xs font-bold text-slate-500">{item.category}</td>
+                <td className="px-6 py-5 text-sm font-black text-slate-900">
+                  {Number(item.selling_price_ks).toLocaleString()}
+                </td>
+                <td className="px-6 py-5 text-sm font-bold text-slate-700">{item.stock_qty}</td>
+                <td className="px-6 py-5">
+                  <span
+                    className={`rounded-lg px-3 py-1 text-[10px] font-black uppercase ${
+                      item.status === "low" ? "bg-orange-100 text-orange-700" : "bg-emerald-100 text-emerald-700"
+                    }`}
+                  >
+                    {item.status}
+                  </span>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
-      </section>
-
-      <section>
-        <h2 className="mb-2 text-lg font-medium">Recent Checkouts</h2>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-slate-500">
-              <th className="py-2">Sale Code</th>
-              <th>Customer</th>
-              <th>Total (Ks)</th>
-              <th>Payment</th>
-            </tr>
-          </thead>
-          <tbody>
-            {recentSales.map((sale) => (
-              <tr key={sale.sale_code} className="border-t border-slate-200 dark:border-slate-800">
-                <td className="py-2">{sale.sale_code}</td>
-                <td>{sale.customer_name ?? "Walk-in"}</td>
-                <td>{Number(sale.total_ks).toLocaleString()}</td>
-                <td>{sale.payment_method}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+      </div>
     </div>
   );
 }

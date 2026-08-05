@@ -35,4 +35,7 @@ export const ROLE_GROUPS = {
   OWNER_ONLY: ["owner"] as Role[],
   MANAGERIAL: ["owner", "staff"] as Role[],
   OPERATIONAL: ["owner", "staff", "agent"] as Role[],
+  // Any signed-in account, including customers — used for features like AI
+  // detection that the report scopes to "registered users", not just staff.
+  ANY_AUTHENTICATED: ["owner", "staff", "agent", "user"] as Role[],
 };

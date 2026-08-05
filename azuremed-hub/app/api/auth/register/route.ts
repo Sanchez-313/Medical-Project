@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import pool from "@/config/db";
+import { verifyRecaptcha } from "@/lib/recaptcha";
 import type { RowDataPacket, ResultSetHeader } from "mysql2";
 
 /**
@@ -10,11 +11,12 @@ import type { RowDataPacket, ResultSetHeader } from "mysql2";
  */
 export async function POST(request: Request) {
   const body = await request.json();
-  const { firstName, lastName, email, password } = body as {
+  const { firstName, lastName, email, password, recaptchaToken } = body as {
     firstName?: string;
     lastName?: string;
     email?: string;
     password?: string;
+    recaptchaToken?: string;
   };
 
   const name = `${firstName ?? ""} ${lastName ?? ""}`.trim();
@@ -25,6 +27,11 @@ export async function POST(request: Request) {
       { success: false, message: "Name, email, and a password of at least 8 characters are required" },
       { status: 400 }
     );
+  }
+
+  const recaptcha = await verifyRecaptcha(recaptchaToken);
+  if (!recaptcha.ok) {
+    return NextResponse.json({ success: false, message: "Verification failed, please try again" }, { status: 400 });
   }
 
   const [existing] = await pool.query<RowDataPacket[]>(

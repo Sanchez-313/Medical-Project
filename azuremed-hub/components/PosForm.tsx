@@ -9,7 +9,13 @@ interface Medicine {
   stock_qty: number;
 }
 
-export default function PosForm({ medicines }: { medicines: Medicine[] }) {
+export default function PosForm({
+  medicines,
+  endpoint = "/api/portal/sales",
+}: {
+  medicines: Medicine[];
+  endpoint?: string;
+}) {
   const [cart, setCart] = useState<Record<number, number>>({});
   const [customerName, setCustomerName] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
@@ -38,7 +44,7 @@ export default function PosForm({ medicines }: { medicines: Medicine[] }) {
     setSubmitting(true);
     setStatus(null);
 
-    const response = await fetch("/api/portal/sales", {
+    const response = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ customerName, paymentMethod, items }),

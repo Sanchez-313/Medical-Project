@@ -8,6 +8,7 @@ import Discount from "../Discount/Discount";
 import Process from "../Process/Process";
 import Testimonials from "../Testimonials/Testimonials";
 import FAQ from '../FAQsection/faq'
+import GoogleCustomSearch from "../GoogleCustomSearch/GoogleCustomSearch";
 
 const App = () => {
   const outletContext = useOutletContext() || {};
@@ -25,6 +26,7 @@ const App = () => {
         <Hero />
         <Category />
         <Values />
+        <GoogleCustomSearch />
         <div ref={productsRef}>
           <Products searchTerm={searchTerm} addToCart={addToCart} />
         </div>

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import StaffSidebar from "@/components/StaffSidebar";
 
 export const metadata = {
   title: "Staff Dashboard | AzureMed Hub",
@@ -14,21 +15,12 @@ export default async function StaffLayout({ children }) {
   }
 
   return (
-    <div className="flex min-h-screen">
-      <aside className="w-64 shrink-0 border-r border-slate-200 p-4 dark:border-slate-800">
-        <p className="mb-4 text-sm font-medium text-slate-500">
-          Staff &middot; {session.user.name}
-        </p>
-        <nav className="flex flex-col gap-1 text-sm">
-          <a href="/staff" className="rounded px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800">
-            POS / Checkout
-          </a>
-        </nav>
-        {/* Stock + checkout data both render inline on this page via
-            /api/staff/medicines and /api/staff/sales; split into separate
-            routes here if the POS screen grows. */}
-      </aside>
-      <main className="flex-1 p-6">{children}</main>
+    <div className="min-h-screen bg-[#f8fafc]">
+      <StaffSidebar userName={session.user.name} />
+      {/* ml-64 matches the sidebar's fixed width — a `fixed` element is out
+          of document flow entirely, unlike `sticky`, so content underneath
+          needs this margin or it slides under the sidebar. */}
+      <main className="ml-64 p-8">{children}</main>
     </div>
   );
 }

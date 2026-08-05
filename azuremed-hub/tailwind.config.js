@@ -1,7 +1,10 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: ["./app/**/*.{ts,tsx,js}", "./components/**/*.{ts,tsx,js}"],
-  darkMode: "media",
+  // Your original app has no dark mode — "class" (never toggled) means any
+  // leftover dark: utility never activates, instead of "media" which was
+  // flipping pages dark based on the visitor's OS theme.
+  darkMode: "class",
   theme: {
     extend: {
       colors: {

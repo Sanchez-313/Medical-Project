@@ -14,6 +14,7 @@ const Category = (onClose) => {
           <img
             src={card.image}
             alt={card.title}
+            
             className="absolute bottom-0 left-1/2 -translate-x-1/2 max-h-[200px] object-contain"
           />
         </div>
