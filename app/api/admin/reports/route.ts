@@ -18,9 +18,15 @@ function toCsv(rows: Array<Record<string, string | number>>): string {
 }
 
 /**
- * Sales-based reporting (matches app/api/admin/overview's existing
- * definition of revenue — POS `sales` only, not storefront `orders`; a
- * pre-existing scope of this dashboard, not something this change expands).
+ * Sales-based reporting, combining BOTH transaction sources the same way
+ * /api/admin/orders already does for the Orders table:
+ *   - `sales`  = in-store POS/checkout, status = 'completed'
+ *   - `orders` = storefront customer checkout, any non-cancelled status
+ *     (revenue is booked once an order is placed, same as a completed POS
+ *     sale — 'pending' just means payment review hasn't happened yet, not
+ *     that no sale occurred)
+ * This used to be sales-only — half of "real checkout data" was silently
+ * missing from every total, the day-by-day breakdown, and the CSV export.
  * ?from=YYYY-MM-DD&to=YYYY-MM-DD filters the period (defaults to the last 30
  * days). ?format=csv streams the day-by-day breakdown as a CSV download
  * instead of JSON.
@@ -40,31 +46,44 @@ export async function GET(request: Request) {
     to: to ?? null,
   };
 
-  const dateFilter = `
-    created_at >= COALESCE(:from, DATE_SUB(CURDATE(), INTERVAL 29 DAY))
-    AND created_at < DATE_ADD(COALESCE(:to, CURDATE()), INTERVAL 1 DAY)
+  const dateFilter = (column: string) => `
+    ${column} >= COALESCE(:from, DATE_SUB(CURDATE(), INTERVAL 29 DAY))
+    AND ${column} < DATE_ADD(COALESCE(:to, CURDATE()), INTERVAL 1 DAY)
+  `;
+
+  // One combined view of both transaction sources, reused by all three
+  // aggregate queries below instead of triplicating the same UNION.
+  const transactionsCte = `
+    WITH transactions AS (
+      (SELECT total_ks, payment_method, created_at FROM sales WHERE status = 'completed' AND ${dateFilter("created_at")})
+      UNION ALL
+      (SELECT total_ks, payment_method, created_at FROM orders WHERE status <> 'cancelled' AND ${dateFilter("created_at")})
+    )
   `;
 
   const [[totals]] = await pool.query<RowDataPacket[]>(
-    `SELECT COUNT(*) AS saleCount, COALESCE(SUM(total_ks), 0) AS totalRevenueKs, COALESCE(AVG(total_ks), 0) AS avgSaleKs
-     FROM sales WHERE status = 'completed' AND ${dateFilter}`,
-    params
+    `${transactionsCte}
+     SELECT COUNT(*) AS saleCount, COALESCE(SUM(total_ks), 0) AS totalRevenueKs, COALESCE(AVG(total_ks), 0) AS avgSaleKs
+     FROM transactions`,
+    { from: params.from, to: params.to }
   );
 
   const [byPaymentMethod] = await pool.query<RowDataPacket[]>(
-    `SELECT payment_method, COUNT(*) AS count, COALESCE(SUM(total_ks), 0) AS totalKs
-     FROM sales WHERE status = 'completed' AND ${dateFilter}
+    `${transactionsCte}
+     SELECT payment_method, COUNT(*) AS count, COALESCE(SUM(total_ks), 0) AS totalKs
+     FROM transactions
      GROUP BY payment_method
      ORDER BY totalKs DESC`,
-    params
+    { from: params.from, to: params.to }
   );
 
   const [daily] = await pool.query<RowDataPacket[]>(
-    `SELECT DATE(created_at) AS date, COUNT(*) AS saleCount, COALESCE(SUM(total_ks), 0) AS revenueKs
-     FROM sales WHERE status = 'completed' AND ${dateFilter}
+    `${transactionsCte}
+     SELECT DATE(created_at) AS date, COUNT(*) AS saleCount, COALESCE(SUM(total_ks), 0) AS revenueKs
+     FROM transactions
      GROUP BY DATE(created_at)
      ORDER BY date ASC`,
-    params
+    { from: params.from, to: params.to }
   );
 
   if (format === "csv") {

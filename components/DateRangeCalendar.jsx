@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ];
-const WEEKDAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
+const WEEKDAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
 function toIso(date) {
   const y = date.getFullYear();
@@ -31,25 +31,32 @@ function formatDisplay(iso) {
  * inputs render their placeholder/picker using the browser's OS locale,
  * which on non-English systems shows unfamiliar tokens instead of
  * "dd/mm/yyyy" and looks broken. This renders identically everywhere.
+ * Plain, modern layout — matches DatePicker.jsx's styling; two clicks pick
+ * a range (start, then end), no extra chrome beyond that.
  */
 export default function DateRangeCalendar({ from, to, onChange, maxDate }) {
   const [open, setOpen] = useState(false);
+  const [alignRight, setAlignRight] = useState(false);
   const [viewMonth, setViewMonth] = useState(() => {
     const d = fromIso(to || from);
     return new Date(d.getFullYear(), d.getMonth(), 1);
   });
-  const containerRef = useRef(null);
+  const panelRef = useRef(null);
+
+  // Anchoring to the trigger's left edge overflows off-screen for a field
+  // positioned further right on the page — measure after the panel renders
+  // and flip to right-aligned if it would extend past the viewport edge.
+  useLayoutEffect(() => {
+    if (!open || !panelRef.current) return;
+    const rect = panelRef.current.getBoundingClientRect();
+    setAlignRight(rect.right > window.innerWidth);
+  }, [open, viewMonth]);
 
   useEffect(() => {
-    function handleClickOutside(e) {
-      if (containerRef.current && !containerRef.current.contains(e.target)) {
-        setOpen(false);
-      }
-    }
-    if (open) document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    if (!open) setAlignRight(false);
   }, [open]);
 
+  const today = new Date();
   const fromDate = fromIso(from);
   const toDate = fromIso(to);
   const maxDateObj = maxDate ? fromIso(maxDate) : null;
@@ -78,7 +85,7 @@ export default function DateRangeCalendar({ from, to, onChange, maxDate }) {
   for (let day = 1; day <= daysInMonth; day++) cells.push(new Date(year, month, day));
 
   return (
-    <div ref={containerRef} className="relative">
+    <div className="relative">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -89,69 +96,73 @@ export default function DateRangeCalendar({ from, to, onChange, maxDate }) {
       </button>
 
       {open && (
-        <div className="absolute right-0 z-40 mt-2 w-72 rounded-2xl border border-slate-100 bg-white p-4 shadow-2xl">
-          <div className="mb-3 flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => setViewMonth(new Date(year, month - 1, 1))}
-              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-50 hover:text-slate-700"
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <p className="text-sm font-black text-slate-800">
-              {MONTH_NAMES[month]} {year}
-            </p>
-            <button
-              type="button"
-              onClick={() => setViewMonth(new Date(year, month + 1, 1))}
-              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-50 hover:text-slate-700"
-            >
-              <ChevronRight size={16} />
-            </button>
-          </div>
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 z-50 mt-2 w-[320px] rounded-2xl border border-slate-100 bg-white p-4 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setViewMonth(new Date(year, month - 1, 1))}
+                className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
+                aria-label="Previous month"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <p className="text-base font-semibold text-slate-900">
+                {MONTH_NAMES[month]} {year}
+              </p>
+              <button
+                type="button"
+                onClick={() => setViewMonth(new Date(year, month + 1, 1))}
+                className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
+                aria-label="Next month"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
 
-          <div className="grid grid-cols-7 gap-1 text-center">
-            {WEEKDAY_LABELS.map((label, i) => (
-              <span key={i} className="text-[10px] font-black uppercase text-slate-300">
-                {label}
-              </span>
-            ))}
-            {cells.map((date, i) => {
-              if (!date) return <span key={i} />;
-              const iso = toIso(date);
-              const isSelected = iso === from || iso === to;
-              const isInRange = from && to && date > fromDate && date < toDate;
-              const isDisabled = maxDateObj && date > maxDateObj;
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  disabled={isDisabled}
-                  onClick={() => handleDayClick(date)}
-                  className={`h-8 rounded-lg text-xs font-bold transition-all ${
-                    isDisabled
-                      ? "cursor-not-allowed text-slate-200"
-                      : isSelected
-                      ? "bg-blue-600 text-white"
-                      : isInRange
-                      ? "bg-blue-50 text-blue-700"
-                      : "text-slate-600 hover:bg-slate-100"
-                  }`}
-                >
-                  {date.getDate()}
-                </button>
-              );
-            })}
-          </div>
+            <div className="grid grid-cols-7">
+              {WEEKDAY_LABELS.map((label, i) => (
+                <span key={i} className="pb-2 text-center text-xs font-medium text-slate-400">
+                  {label}
+                </span>
+              ))}
+            </div>
 
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            className="mt-3 w-full rounded-xl bg-slate-100 py-2 text-xs font-black uppercase text-slate-600 hover:bg-slate-200"
-          >
-            Done
-          </button>
-        </div>
+            <div className="grid grid-cols-7 gap-y-1">
+              {cells.map((date, i) => {
+                if (!date) return <span key={i} />;
+                const iso = toIso(date);
+                const isSelected = iso === from || iso === to;
+                const isInRange = from && to && date > fromDate && date < toDate;
+                const isToday = iso === toIso(today);
+                const isDisabled = maxDateObj && date > maxDateObj;
+                return (
+                  <div key={i} className="flex items-center justify-center">
+                    <button
+                      type="button"
+                      disabled={isDisabled}
+                      onClick={() => handleDayClick(date)}
+                      className={`flex h-10 w-10 items-center justify-center rounded-full text-sm transition-all ${
+                        isDisabled
+                          ? "cursor-not-allowed text-slate-200"
+                          : isSelected
+                          ? "bg-blue-600 font-semibold text-white"
+                          : isInRange
+                          ? "bg-blue-50 font-medium text-blue-700"
+                          : isToday
+                          ? "font-semibold text-blue-600 ring-1 ring-inset ring-blue-200 hover:bg-blue-50"
+                          : "font-medium text-slate-700 hover:bg-slate-100"
+                      }`}
+                    >
+                      {date.getDate()}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

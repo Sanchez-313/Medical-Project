@@ -16,16 +16,23 @@ export async function GET() {
   const gate = await requireRole(ROLE_GROUPS.OWNER_ONLY);
   if (!gate.ok) return gate.response;
 
+  // shipping_phone/city/address: NULL for POS rows (in-store, nothing to
+  // ship) — only Storefront rows carry real values. Added for
+  // /admin/deliveries, which needs the delivery address; kept on this same
+  // shared query rather than a separate endpoint so both pages stay backed
+  // by one source of truth for order data.
   const [rows] = await pool.query<RowDataPacket[]>(
     `(SELECT s.id, s.sale_code AS code, 'POS' AS source, s.customer_name, s.payment_method,
              s.total_ks, s.status, s.created_at, u.name AS handled_by,
-             NULL AS payment_proof_url, 'not_required' AS payment_status
+             NULL AS payment_proof_url, 'not_required' AS payment_status,
+             NULL AS shipping_phone, NULL AS shipping_city, NULL AS shipping_address
       FROM sales s
       JOIN users u ON u.id = s.handled_by_user_id)
      UNION ALL
      (SELECT o.id, o.order_code AS code, 'Storefront' AS source, o.shipping_name AS customer_name, o.payment_method,
              o.total_ks, o.status, o.created_at, NULL AS handled_by,
-             o.payment_proof_url, o.payment_status
+             o.payment_proof_url, o.payment_status,
+             o.shipping_phone, o.shipping_city, o.shipping_address
       FROM orders o)
      ORDER BY created_at DESC
      LIMIT 100`

@@ -6,6 +6,7 @@ import { Settings2, Plus, Trash2, Tag } from "lucide-react";
 export default function SettingsPage() {
   const [settings, setSettings] = useState(null);
   const [deliveryFee, setDeliveryFee] = useState("");
+  const [freeDeliveryThreshold, setFreeDeliveryThreshold] = useState("");
   const [lowStockThreshold, setLowStockThreshold] = useState("");
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsNotice, setSettingsNotice] = useState("");
@@ -23,6 +24,7 @@ export default function SettingsPage() {
         if (result.success) {
           setSettings(result.data);
           setDeliveryFee(String(result.data.delivery_fee_ks));
+          setFreeDeliveryThreshold(String(result.data.free_delivery_threshold_ks));
           setLowStockThreshold(String(result.data.low_stock_default_threshold));
         }
       });
@@ -48,6 +50,7 @@ export default function SettingsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         delivery_fee_ks: Number(deliveryFee),
+        free_delivery_threshold_ks: Number(freeDeliveryThreshold),
         low_stock_default_threshold: Number(lowStockThreshold),
       }),
     }).then((r) => r.json());
@@ -103,9 +106,13 @@ export default function SettingsPage() {
         <p className="pt-3 text-slate-500">Delivery fee, low-stock alert threshold, and promo codes.</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-[2.5rem] border border-slate-100 bg-white p-8 shadow-sm">
-          <div className="mb-6 flex items-center gap-3">
+      {/* items-start: grid items stretch to match the tallest sibling by
+          default, so adding the Free Delivery Threshold field to Storefront
+          Settings (taller now) was also stretching the shorter Promo Codes
+          card to match, leaving a big empty gap under "No promo codes yet." */}
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+        <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center gap-3">
             <div className="flex size-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-500">
               <Settings2 size={18} />
             </div>
@@ -118,7 +125,7 @@ export default function SettingsPage() {
             <form onSubmit={saveSettings} className="space-y-4">
               <div>
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                  Delivery Fee (Ks)
+                  Delivery Fee (MMK)
                 </label>
                 <input
                   type="number"
@@ -128,6 +135,21 @@ export default function SettingsPage() {
                   className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-50"
                 />
                 <p className="mt-1 text-xs text-slate-400">Applied to every storefront checkout. Set to 0 for free delivery.</p>
+              </div>
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  Free Delivery Threshold (MMK)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={freeDeliveryThreshold}
+                  onChange={(e) => setFreeDeliveryThreshold(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-50"
+                />
+                <p className="mt-1 text-xs text-slate-400">
+                  Orders at or above this subtotal get the delivery fee waived. Set to 0 to always charge the fee above.
+                </p>
               </div>
               <div>
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
@@ -158,15 +180,15 @@ export default function SettingsPage() {
           )}
         </div>
 
-        <div className="rounded-[2.5rem] border border-slate-100 bg-white p-8 shadow-sm">
-          <div className="mb-6 flex items-center gap-3">
+        <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center gap-3">
             <div className="flex size-10 items-center justify-center rounded-2xl bg-purple-50 text-purple-500">
               <Tag size={18} />
             </div>
             <h2 className="font-black text-slate-900">Promo Codes</h2>
           </div>
 
-          <form onSubmit={createPromoCode} className="mb-6 flex items-end gap-2">
+          <form onSubmit={createPromoCode} className="mb-4 flex items-end gap-2">
             <div className="flex-1">
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Code</label>
               <input

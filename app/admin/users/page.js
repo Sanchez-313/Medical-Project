@@ -4,19 +4,18 @@ import { useEffect, useMemo, useState } from "react";
 import { Search, Shield, ShieldOff, UserPlus } from "lucide-react";
 
 const ROLE_BADGE = {
-  owner: "bg-purple-100 text-purple-700",
+  admin: "bg-purple-100 text-purple-700",
   staff: "bg-blue-100 text-blue-700",
-  agent: "bg-amber-100 text-amber-700",
   user: "bg-slate-100 text-slate-600",
 };
 
-const CREATABLE_ROLES = ["staff", "agent", "owner", "user"];
+const CREATABLE_ROLES = ["staff", "admin", "user"];
+const ROLE_DISPLAY_LABEL = { staff: "Staff", admin: "Admin", user: "User" };
 
 const ROLE_TABS = [
   { key: "all", label: "All" },
-  { key: "owner", label: "Owner" },
+  { key: "admin", label: "Admin" },
   { key: "staff", label: "Staff" },
-  { key: "agent", label: "Agent" },
   { key: "user", label: "User" },
 ];
 
@@ -48,7 +47,7 @@ export default function UserManagementPage() {
   }, [search]);
 
   const roleCounts = useMemo(() => {
-    const counts = { all: users.length, owner: 0, staff: 0, agent: 0, user: 0 };
+    const counts = { all: users.length, owner: 0, staff: 0, user: 0 };
     for (const u of users) {
       if (counts[u.role] !== undefined) counts[u.role] += 1;
     }
@@ -170,7 +169,7 @@ export default function UserManagementPage() {
                   <td className="px-6 py-5 text-sm text-slate-600">{user.email}</td>
                   <td className="px-6 py-5">
                     <span className={`rounded-lg px-3 py-1 text-[10px] font-black uppercase ${ROLE_BADGE[user.role] ?? ROLE_BADGE.user}`}>
-                      {user.role}
+                      {ROLE_DISPLAY_LABEL[user.role] ?? user.role}
                     </span>
                   </td>
                   <td className="px-6 py-5">
@@ -211,7 +210,7 @@ export default function UserManagementPage() {
           <div className="w-full max-w-md rounded-[2rem] bg-white p-8 shadow-2xl">
             <h3 className="text-xl font-black text-slate-900">Create Account</h3>
             <p className="mt-1 text-sm text-slate-500">
-              Staff, Agent, and Owner accounts can only be created here — public sign-up always creates a customer account.
+              Staff and Admin accounts can only be created here — public sign-up always creates a customer account.
             </p>
 
             <form onSubmit={handleCreate} className="mt-6 space-y-4">
@@ -257,7 +256,7 @@ export default function UserManagementPage() {
                 >
                   {CREATABLE_ROLES.map((role) => (
                     <option key={role} value={role}>
-                      {role}
+                      {ROLE_DISPLAY_LABEL[role]}
                     </option>
                   ))}
                 </select>

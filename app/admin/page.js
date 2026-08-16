@@ -48,7 +48,7 @@ export default function AdminDashboardPage() {
     ? [
         {
           label: "ခန့်မှန်းစတော့တန်ဖိုး",
-          value: `${new Intl.NumberFormat("en-MM").format(overview.totalStockValueKs)} Ks`,
+          value: `${new Intl.NumberFormat("en-MM").format(overview.totalStockValueKs)} MMK`,
           icon: <TrendingUp className="text-emerald-500" />,
         },
         {
@@ -135,7 +135,7 @@ export default function AdminDashboardPage() {
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 600 }} dy={10} />
                 <YAxis hide />
-                <Tooltip formatter={(value) => [`${Number(value).toLocaleString()} Ks`, "ဝင်ငွေ"]} />
+                <Tooltip formatter={(value) => [`${Number(value).toLocaleString()} MMK`, "ဝင်ငွေ"]} />
                 <Area type="monotone" dataKey="revenue" stroke="#2563eb" strokeWidth={4} fillOpacity={1} fill="url(#colorRev)" />
               </AreaChart>
             </ResponsiveContainer>
@@ -158,7 +158,7 @@ export default function AdminDashboardPage() {
                     {sale.sale_code}: {sale.customer_name ?? "Walk-in"}
                   </p>
                   <p className="text-[10px] font-black text-slate-400 mt-1 uppercase">
-                    {Number(sale.total_ks).toLocaleString()} Ks &middot; {sale.payment_method}
+                    {Number(sale.total_ks).toLocaleString()} MMK &middot; {sale.payment_method}
                   </p>
                 </div>
               </div>

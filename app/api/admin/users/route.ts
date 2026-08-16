@@ -4,7 +4,7 @@ import pool from "@/config/db";
 import { requireRole, ROLE_GROUPS } from "@/lib/rbac";
 import type { RowDataPacket, ResultSetHeader } from "mysql2";
 
-const CREATABLE_ROLES = new Set(["owner", "staff", "agent", "user"]);
+const CREATABLE_ROLES = new Set(["admin", "staff", "agent", "user"]);
 
 /** All accounts (every role), for owner-only block/approve management. */
 export async function GET(request: Request) {

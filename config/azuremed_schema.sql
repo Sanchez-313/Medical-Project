@@ -6,7 +6,7 @@ USE azuremed_hub;
 
 -- ---------------------------------------------------------------------------
 -- users: 4 roles.
---   owner  -> full access (/admin), revenue + system config
+--   admin  -> full access (/admin), revenue + system config
 --   staff  -> healthcare staff/cashiers (/staff), POS + stock, no financials
 --   agent  -> front-line portal user operating from the public site ("/")
 --   user   -> ordinary customer account on the storefront
@@ -16,13 +16,8 @@ CREATE TABLE IF NOT EXISTS users (
   name VARCHAR(255) NOT NULL,
   email VARCHAR(255) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
-  role ENUM('owner', 'staff', 'agent', 'user') NOT NULL DEFAULT 'user',
+  role ENUM('admin', 'staff', 'agent', 'user') NOT NULL DEFAULT 'user',
   is_active TINYINT(1) NOT NULL DEFAULT 1,
-  -- TOTP 2FA (owner/staff/agent only — see lib/totp.ts, app/api/account/2fa/*).
-  -- totp_secret is only ever meaningful once totp_enabled=1; a secret can
-  -- exist mid-setup before the user confirms their first code.
-  totp_secret VARCHAR(64) NULL,
-  totp_enabled TINYINT(1) NOT NULL DEFAULT 0,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_users_role (role)
@@ -182,12 +177,18 @@ CREATE TABLE IF NOT EXISTS order_items (
 CREATE TABLE IF NOT EXISTS store_settings (
   id TINYINT NOT NULL PRIMARY KEY DEFAULT 1,
   delivery_fee_ks INT NOT NULL DEFAULT 0,
+  -- Orders at or above this subtotal get delivery_fee_ks waived (shown as
+  -- FREE at checkout); below it, the configured fee still applies. Every
+  -- order still gets delivered either way — there's no in-store pickup
+  -- option in this app — this only ever waives the fee, never blocks
+  -- checkout. 0 disables the threshold (fee always applies).
+  free_delivery_threshold_ks INT NOT NULL DEFAULT 30000,
   low_stock_default_threshold INT NOT NULL DEFAULT 20,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT chk_store_settings_singleton CHECK (id = 1)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-INSERT IGNORE INTO store_settings (id, delivery_fee_ks, low_stock_default_threshold) VALUES (1, 0, 20);
+INSERT IGNORE INTO store_settings (id, delivery_fee_ks, free_delivery_threshold_ks, low_stock_default_threshold) VALUES (1, 0, 30000, 20);
 
 -- ---------------------------------------------------------------------------
 -- promo_codes: owner-managed percentage discount codes, applied at checkout
@@ -218,52 +219,110 @@ CREATE TABLE IF NOT EXISTS customer_queries (
   staff_response TEXT NULL,
   responded_by INT NULL,
   responded_at DATETIME NULL,
+  -- Set only for queries submitted through the medicalbot Telegram bot (see
+  -- app/api/support/telegram/route.ts) — NULL for ones submitted from the
+  -- storefront Support page. user_id still points at a real row (the shared
+  -- "Telegram Bot" service account from lib/telegramBot.ts, since a Telegram
+  -- user has no website login) but these two columns preserve who actually
+  -- asked, so /staff/queries and any future reply-back-to-Telegram feature
+  -- can tell real customers apart from each other.
+  telegram_chat_id BIGINT NULL,
+  telegram_username VARCHAR(255) NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_customer_queries_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   CONSTRAINT fk_customer_queries_responder FOREIGN KEY (responded_by) REFERENCES users(id) ON DELETE SET NULL,
   INDEX idx_customer_queries_user (user_id),
-  INDEX idx_customer_queries_status (status)
+  INDEX idx_customer_queries_status (status),
+  INDEX idx_customer_queries_telegram_chat (telegram_chat_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ---------------------------------------------------------------------------
--- staff_todos: personal daily task list on the Staff dashboard. Scoped to
--- the owning user (staff manage their own list; an owner viewing /staff only
--- sees their own, never another staff member's).
--- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS staff_todos (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  user_id INT NOT NULL,
-  task VARCHAR(255) NOT NULL,
-  is_done TINYINT(1) NOT NULL DEFAULT 0,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_staff_todos_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  INDEX idx_staff_todos_user (user_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- ---------------------------------------------------------------------------
--- staff_attendance: one row per (user, calendar day) check-in/check-out.
--- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS staff_attendance (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  user_id INT NOT NULL,
-  work_date DATE NOT NULL,
-  check_in_at DATETIME NULL,
-  check_out_at DATETIME NULL,
-  CONSTRAINT fk_staff_attendance_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  CONSTRAINT uq_staff_attendance_user_date UNIQUE (user_id, work_date),
-  INDEX idx_staff_attendance_user (user_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+-- staff_todos and staff_attendance (personal task list + check-in/out on the
+-- Staff dashboard) were removed — feature deleted, not just hidden. See
+-- scripts/applySchema.js for the DROP TABLE that retires them on existing
+-- databases.
 
 -- ---------------------------------------------------------------------------
 -- reviews: customer testimonials shown on the storefront (Testimonials.jsx).
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS reviews (
   id INT AUTO_INCREMENT PRIMARY KEY,
+  -- NULL for the original owner-seeded demo testimonials; set for any
+  -- customer-submitted one. UNIQUE on user_id caps a real customer to one
+  -- testimonial (resubmitting edits it) while still allowing any number of
+  -- NULL rows (MySQL/MariaDB unique indexes don't treat NULL as a duplicate).
+  user_id INT NULL,
   name VARCHAR(255) NOT NULL,
   title VARCHAR(255) NULL,
   comment TEXT NOT NULL,
   rating TINYINT NOT NULL DEFAULT 5,
   avatar_url TEXT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_reviews_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT uq_reviews_user UNIQUE (user_id),
+  CONSTRAINT chk_reviews_rating CHECK (rating BETWEEN 1 AND 5),
   INDEX idx_reviews_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ---------------------------------------------------------------------------
+-- product_reviews: real customer reviews on a specific product. Distinct
+-- from `reviews` (owner-curated homepage testimonials, no product link) —
+-- these are user-submitted, restricted server-side to customers who actually
+-- have a non-cancelled order containing the medicine (see
+-- app/api/products/[id]/reviews/route.ts), one review per (user, medicine)
+-- so re-submitting edits rather than duplicates.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS product_reviews (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  medicine_id INT NOT NULL,
+  user_id INT NOT NULL,
+  rating TINYINT NOT NULL,
+  comment TEXT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_product_reviews_medicine FOREIGN KEY (medicine_id) REFERENCES medicines(id) ON DELETE CASCADE,
+  CONSTRAINT fk_product_reviews_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT uq_product_reviews_user_medicine UNIQUE (user_id, medicine_id),
+  CONSTRAINT chk_product_reviews_rating CHECK (rating BETWEEN 1 AND 5),
+  INDEX idx_product_reviews_medicine (medicine_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ---------------------------------------------------------------------------
+-- password_reset_tokens: "Forgot Password" flow. Only the SHA-256 hash of
+-- the token is stored (like a password) — the raw token only ever exists in
+-- the emailed link and the requester's browser, never at rest in the DB.
+-- Short-lived (30 min) and single-use (used_at set on redemption).
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  token_hash CHAR(64) NOT NULL UNIQUE,
+  expires_at DATETIME NOT NULL,
+  used_at DATETIME NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_password_reset_tokens_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_password_reset_tokens_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ---------------------------------------------------------------------------
+-- advertisements: Admin-managed promo slideshow shown on the storefront home
+-- page, right below the hero. sort_order controls slide order (lower first);
+-- is_active lets an Admin hide a slide without deleting it.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS advertisements (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  description VARCHAR(500) NULL,
+  -- Myanmar counterparts, optional — if left blank the storefront falls
+  -- back to the English title/description when displaying in Myanmar mode
+  -- (see components/AdvertisementSlideshow.tsx), so filling these in is
+  -- never required to publish a slide.
+  title_my VARCHAR(255) NULL,
+  description_my VARCHAR(500) NULL,
+  image_url TEXT NOT NULL,
+  link_url TEXT NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_advertisements_active_sort (is_active, sort_order)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

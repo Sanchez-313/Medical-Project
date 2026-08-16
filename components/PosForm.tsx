@@ -21,6 +21,11 @@ export default function PosForm({
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [status, setStatus] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const filteredMedicines = medicines.filter((medicine) =>
+    medicine.name.toLowerCase().includes(search.trim().toLowerCase())
+  );
 
   function setQty(medicineId: number, qty: number) {
     setCart((prev) => {
@@ -57,7 +62,7 @@ export default function PosForm({
       return;
     }
 
-    setStatus(`Sale ${result.data.saleCode} recorded — total ${result.data.totalKs.toLocaleString()} Ks`);
+    setStatus(`Sale ${result.data.saleCode} recorded — total ${result.data.totalKs.toLocaleString()} MMK`);
     setCart({});
     setCustomerName("");
   }
@@ -85,17 +90,32 @@ export default function PosForm({
         </select>
       </div>
 
+      <input
+        type="text"
+        placeholder="Search medicine by name..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="w-full rounded border px-3 py-2 text-sm"
+      />
+
       <table className="w-full text-sm">
         <thead>
           <tr className="text-left text-slate-500">
             <th className="py-2">Medicine</th>
-            <th>Price (Ks)</th>
+            <th>Price (MMK)</th>
             <th>Stock</th>
             <th>Qty</th>
           </tr>
         </thead>
         <tbody>
-          {medicines.map((medicine) => (
+          {filteredMedicines.length === 0 && (
+            <tr>
+              <td colSpan={4} className="py-4 text-center text-slate-400">
+                No medicines match &quot;{search}&quot;.
+              </td>
+            </tr>
+          )}
+          {filteredMedicines.map((medicine) => (
             <tr key={medicine.id} className="border-t border-slate-200 dark:border-slate-800">
               <td className="py-2">{medicine.name}</td>
               <td>{Number(medicine.selling_price_ks).toLocaleString()}</td>

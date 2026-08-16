@@ -32,10 +32,10 @@ export async function requireRole(allowed: Role[]): Promise<
 }
 
 export const ROLE_GROUPS = {
-  OWNER_ONLY: ["owner"] as Role[],
-  MANAGERIAL: ["owner", "staff"] as Role[],
-  OPERATIONAL: ["owner", "staff", "agent"] as Role[],
+  OWNER_ONLY: ["admin"] as Role[],
+  MANAGERIAL: ["admin", "staff"] as Role[],
+  OPERATIONAL: ["admin", "staff", "agent"] as Role[],
   // Any signed-in account, including customers — used for features like AI
   // detection that the report scopes to "registered users", not just staff.
-  ANY_AUTHENTICATED: ["owner", "staff", "agent", "user"] as Role[],
+  ANY_AUTHENTICATED: ["admin", "staff", "agent", "user"] as Role[],
 };

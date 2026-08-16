@@ -18,11 +18,12 @@ const EXTENSION_BY_MIME: Record<string, string> = {
 };
 const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "detections");
 
-// Below this, we still show the AI's best guess (with topMatches for
-// transparency) but don't attempt a catalog lookup — an unconfident guess
-// shouldn't be dressed up as a real product/medicine detail.
-const MIN_MATCH_CONFIDENCE = 0.7;
-const HIGH_CONFIDENCE_THRESHOLD = 0.85;
+// Only High Confidence (>=92%) results in an actual product lookup — below
+// that the frontend shows a plain error rather than dressing up an
+// unconfident guess as a real product/medicine detail. topMatches is still
+// returned below this line for transparency/debugging, just not acted on.
+const MIN_MATCH_CONFIDENCE = 0.92;
+const HIGH_CONFIDENCE_THRESHOLD = 0.92;
 const MEDIUM_CONFIDENCE_THRESHOLD = 0.6;
 
 type ConfidenceStatus = "HIGH_CONFIDENCE" | "MEDIUM_CONFIDENCE" | "LOW_CONFIDENCE" | "NO_MATCH";

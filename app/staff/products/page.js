@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Search, Boxes, X as XIcon } from "lucide-react";
+import Pagination from "@/components/Pagination";
+
+const ITEMS_PER_PAGE = 10;
 
 const STATUS_BADGE = {
   normal: "bg-emerald-100 text-emerald-700",
@@ -20,6 +23,7 @@ export default function StaffProductsPage() {
   const [products, setProducts] = useState([]);
   const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const [stockTarget, setStockTarget] = useState(null);
   const [stockValue, setStockValue] = useState("");
@@ -39,6 +43,13 @@ export default function StaffProductsPage() {
   }, []);
 
   const filtered = products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
+
+  const indexOfLastItem = currentPage * ITEMS_PER_PAGE;
+  const currentItems = filtered.slice(indexOfLastItem - ITEMS_PER_PAGE, indexOfLastItem);
 
   function openStockUpdate(product) {
     setStockTarget(product);
@@ -76,7 +87,7 @@ export default function StaffProductsPage() {
         <div>
           <h1 className="text-3xl font-black tracking-tight text-slate-900">Products</h1>
           <p className="pt-3 text-slate-500">
-            Browse the catalog and update stock quantities. Adding new products or editing details is done by the Owner.
+            Browse the catalog and update stock quantities. Adding new products or editing details is done by the Admin.
           </p>
         </div>
         <div className="relative w-72">
@@ -96,7 +107,7 @@ export default function StaffProductsPage() {
             <tr className="border-b border-slate-50 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">
               <th className="px-8 py-5">Product</th>
               <th className="px-6 py-5">Category</th>
-              <th className="px-6 py-5">Price (Ks)</th>
+              <th className="px-6 py-5">Price (MMK)</th>
               <th className="px-6 py-5">Stock</th>
               <th className="px-6 py-5">Expiry</th>
               <th className="px-6 py-5">Status</th>
@@ -111,7 +122,7 @@ export default function StaffProductsPage() {
               <tr><td colSpan={7} className="px-8 py-16 text-center font-bold text-slate-400">No products found.</td></tr>
             )}
             {!isLoading &&
-              filtered.map((product) => (
+              currentItems.map((product) => (
                 <tr key={product.id} className="hover:bg-slate-50/50">
                   <td className="px-8 py-5">
                     <div className="flex items-center gap-3">
@@ -152,6 +163,13 @@ export default function StaffProductsPage() {
               ))}
           </tbody>
         </table>
+
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filtered.length}
+          itemsPerPage={ITEMS_PER_PAGE}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       {stockTarget && (

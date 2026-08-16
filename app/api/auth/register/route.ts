@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import pool from "@/config/db";
 import { verifyRecaptcha } from "@/lib/recaptcha";
+import { validatePasswordStrength } from "@/lib/passwordRules";
 import type { RowDataPacket, ResultSetHeader } from "mysql2";
 
 /**
@@ -22,11 +23,12 @@ export async function POST(request: Request) {
   const name = `${firstName ?? ""} ${lastName ?? ""}`.trim();
   const normalizedEmail = email?.toLowerCase().trim() ?? "";
 
-  if (!name || !normalizedEmail || !password || password.length < 8) {
-    return NextResponse.json(
-      { success: false, message: "Name, email, and a password of at least 8 characters are required" },
-      { status: 400 }
-    );
+  if (!name || !normalizedEmail) {
+    return NextResponse.json({ success: false, message: "Name and email are required" }, { status: 400 });
+  }
+  const passwordError = validatePasswordStrength(password ?? "");
+  if (passwordError || !password) {
+    return NextResponse.json({ success: false, message: passwordError ?? "Password is required" }, { status: 400 });
   }
 
   const recaptcha = await verifyRecaptcha(recaptchaToken);

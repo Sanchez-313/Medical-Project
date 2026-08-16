@@ -10,6 +10,9 @@ export const dynamic = "force-dynamic";
 /**
  * Public storefront listing — no auth required. Never selects cost_price_ks;
  * that stays owner-only, same isolation rule as every other product query.
+ * Also never selects sku: it's an internal inventory code with no storefront
+ * use, and this route is unauthenticated/publicly scrapeable, so there's no
+ * reason to hand it out.
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -17,7 +20,7 @@ export async function GET(request: Request) {
   const search = searchParams.get("search")?.trim();
 
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT id, name, sku, category, description, image_url, selling_price_ks, stock_qty, status
+    `SELECT id, name, category, description, image_url, selling_price_ks, stock_qty, status
      FROM medicines
      WHERE is_active = 1
        AND (:category IS NULL OR category = :category)

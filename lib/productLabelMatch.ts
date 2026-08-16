@@ -21,6 +21,15 @@ const LABEL_PRODUCT_ALIASES: Array<{ labels: string[]; productName?: string; pro
   { labels: ["multivitaminus"], productName: "Multivitaminus" },
   { labels: ["sezo b cream", "sezo-b cream"], productName: "SEZO-B Cream" },
   { labels: ["fungiderm cream"], productName: "Fungiderm Cream" },
+  // New model (tm-my-image-model (4), 2026-08-15) labels below. A few don't
+  // score via the fuzzy fallback: "dhoekyaungthar" is a 1-letter typo vs our
+  // stored "DhoetKyaungThar", and the pure-Burmese labels have no romanized
+  // text in common with our (romanized) Traditional Medicine product names.
+  { labels: ["ဒို့ကျောင်းသား", "dhoekyaungthar"], productName: "DhoetKyaungThar" },
+  { labels: ["မဟာဖြေဆေး"], productName: "KyarNayMaharPhyaySay" },
+  { labels: ["ပန်းဝတ်မှုန်"], productName: "Pan Wutt Hmone A Pu Nyein Say Bot" },
+  { labels: ["cetrine"], productName: "Cetrine 10 mg" },
+  { labels: ["leopovidone"], productName: "LeoPovidone Solution 15 ml" },
 ];
 
 function normalizeText(value: string): string {

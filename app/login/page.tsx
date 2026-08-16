@@ -23,20 +23,16 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
-  const [needsTotp, setNeedsTotp] = useState(false);
-  const [totpCode, setTotpCode] = useState("");
 
   async function finishLogin() {
     const session = await fetch("/api/auth/session").then((r) => r.json());
     const role = session?.user?.role;
-    router.push(role === "owner" ? "/admin" : role === "staff" ? "/staff" : role === "agent" ? "/portal" : "/");
+    router.push(role === "admin" ? "/admin" : role === "staff" ? "/staff" : role === "agent" ? "/portal" : "/");
   }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    setError("");
 
     const nextFieldErrors: { email?: string; password?: string } = {};
     if (!email.trim()) {
@@ -57,35 +53,8 @@ export default function LoginPage() {
     const result = await signIn("credentials", { email, password, recaptchaToken, redirect: false });
     setLoading(false);
 
-    if (result?.error === "TOTP_REQUIRED") {
-      setNeedsTotp(true);
-      return;
-    }
     if (result?.error) {
       setFieldErrors({ password: "Incorrect email or password." });
-      return;
-    }
-
-    await finishLogin();
-  }
-
-  async function handleTotpSubmit(e: FormEvent) {
-    e.preventDefault();
-    setError("");
-
-    if (totpCode.trim().length !== 6) {
-      setError("Enter the 6-digit code from your authenticator app.");
-      return;
-    }
-
-    setLoading(true);
-    const recaptchaToken = await getRecaptchaToken("login");
-    const result = await signIn("credentials", { email, password, recaptchaToken, totpCode, redirect: false });
-    setLoading(false);
-
-    if (result?.error) {
-      setError("Incorrect code. Please try again.");
-      setTotpCode("");
       return;
     }
 
@@ -156,49 +125,6 @@ export default function LoginPage() {
               <p className="mt-3 text-slate-500 text-sm">Sign in to access AI medicine detection and your account.</p>
             </header>
 
-            {needsTotp ? (
-              <form className="space-y-5" onSubmit={handleTotpSubmit}>
-                <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    Authenticator Code
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    autoFocus
-                    maxLength={6}
-                    placeholder="123456"
-                    value={totpCode}
-                    onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ""))}
-                    className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-center text-2xl tracking-[0.5em] outline-none transition-all focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-50"
-                  />
-                  <p className="mt-2 text-xs text-slate-400">
-                    Enter the 6-digit code from your authenticator app.
-                  </p>
-                </div>
-
-                {error && <p className="text-sm text-red-600">{error}</p>}
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full rounded-xl bg-blue-600 py-4 text-sm font-bold tracking-[0.15em] text-white shadow-xl shadow-blue-100 transition-all hover:bg-blue-700 hover:shadow-blue-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {loading ? "Verifying..." : "Verify & Sign In"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setNeedsTotp(false);
-                    setTotpCode("");
-                    setError("");
-                  }}
-                  className="w-full text-center text-xs font-bold text-slate-400 hover:text-slate-600"
-                >
-                  &larr; Back to password
-                </button>
-              </form>
-            ) : (
             <form className="space-y-5" onSubmit={handleSubmit}>
               <div>
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Patient Email / Health ID</label>
@@ -220,7 +146,9 @@ export default function LoginPage() {
               <div className="relative">
                 <div className="flex justify-between items-center">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Security Password</label>
-                  <span className="text-[10px] font-bold text-blue-600 uppercase">Forgot Password?</span>
+                  <Link href="/forgot-password" className="text-[10px] font-bold text-blue-600 uppercase hover:underline">
+                    Forgot Password?
+                  </Link>
                 </div>
                 <input
                   type={showPassword ? "text" : "password"}
@@ -260,7 +188,6 @@ export default function LoginPage() {
                 {loading ? "Signing In..." : "Secure LOGIN"}
               </button>
             </form>
-            )}
 
             <footer className="mt-12 text-center">
               <div className="relative mb-6 flex items-center justify-center">

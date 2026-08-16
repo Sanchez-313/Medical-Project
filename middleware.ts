@@ -11,17 +11,17 @@ const AUTH_RATE_WINDOW_MS = 60_000;
 const RATE_LIMITED_PATHS = ["/api/auth/callback/credentials", "/api/auth/register"];
 
 // Path-prefix -> allowed roles.
-//   /admin -> owner only (revenue, logs, system config)
-//   /staff -> owner + staff (POS billing, stock views, no financials)
-//   /portal -> owner + staff + agent (front-line agent portal: browse stock, light POS)
+//   /admin -> admin only (revenue, logs, system config)
+//   /staff -> admin + staff (POS billing, stock views, no financials)
+//   /portal -> admin + staff + agent (front-line agent portal: browse stock, light POS)
 //   /api/admin, /api/staff, /api/portal -> mirror their page counterparts
 const ROUTE_RULES: Array<{ prefix: string; roles: string[] }> = [
-  { prefix: "/admin", roles: ["owner"] },
-  { prefix: "/api/admin", roles: ["owner"] },
-  { prefix: "/staff", roles: ["owner", "staff"] },
-  { prefix: "/api/staff", roles: ["owner", "staff"] },
-  { prefix: "/portal", roles: ["owner", "staff", "agent"] },
-  { prefix: "/api/portal", roles: ["owner", "staff", "agent"] },
+  { prefix: "/admin", roles: ["admin"] },
+  { prefix: "/api/admin", roles: ["admin"] },
+  { prefix: "/staff", roles: ["admin", "staff"] },
+  { prefix: "/api/staff", roles: ["admin", "staff"] },
+  { prefix: "/portal", roles: ["admin", "staff", "agent"] },
+  { prefix: "/api/portal", roles: ["admin", "staff", "agent"] },
 ];
 
 function applySecurityHeaders(response: NextResponse): NextResponse {

@@ -19,6 +19,7 @@ export default function CheckoutPage() {
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [proofPreview, setProofPreview] = useState<string | null>(null);
   const [deliveryFee, setDeliveryFee] = useState(0);
+  const [freeDeliveryThreshold, setFreeDeliveryThreshold] = useState(0);
   const [promoInput, setPromoInput] = useState("");
   const [appliedPromo, setAppliedPromo] = useState<{ code: string; discount_percent: number } | null>(null);
   const [promoError, setPromoError] = useState("");
@@ -28,7 +29,10 @@ export default function CheckoutPage() {
     fetch("/api/settings/public")
       .then((r) => r.json())
       .then((result) => {
-        if (result.success) setDeliveryFee(result.data.delivery_fee_ks);
+        if (result.success) {
+          setDeliveryFee(result.data.delivery_fee_ks);
+          setFreeDeliveryThreshold(result.data.free_delivery_threshold_ks);
+        }
       });
   }, []);
 
@@ -59,7 +63,13 @@ export default function CheckoutPage() {
   const subtotal = cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
   const tax = Math.round(subtotal * 0.05);
   const discount = appliedPromo ? Math.round((subtotal * appliedPromo.discount_percent) / 100) : 0;
-  const total = subtotal + tax + deliveryFee - discount;
+  // Preview only — the real fee is always recomputed server-side in
+  // /api/orders from the same store_settings row, so this can never be
+  // spoofed into a free order client-side.
+  const qualifiesForFreeDelivery = freeDeliveryThreshold > 0 && subtotal >= freeDeliveryThreshold;
+  const effectiveDeliveryFee = qualifiesForFreeDelivery ? 0 : deliveryFee;
+  const total = subtotal + tax + effectiveDeliveryFee - discount;
+  const amountToFreeDelivery = freeDeliveryThreshold - subtotal;
 
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
     const { name, value } = e.target;
@@ -211,7 +221,7 @@ export default function CheckoutPage() {
                     </div>
                   </label>
                   <p className="mt-2 text-xs text-slate-500">
-                    An Owner will manually confirm this payment before your order ships.
+                    An Admin will manually confirm this payment before your order ships.
                   </p>
                 </div>
               )}
@@ -257,24 +267,25 @@ export default function CheckoutPage() {
                 )}
               </div>
 
-              <div className="mb-6">
-                <label className="text-sm font-black ml-1 uppercase tracking-tighter text-slate-500">Promo Code</label>
-                <div className="mt-2 flex gap-2">
-                  <div className="relative flex-1">
-                    <Tag size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      value={promoInput}
-                      onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
-                      placeholder="Enter code"
-                      className="w-full h-11 pl-10 pr-3 rounded-xl bg-slate-50 border border-slate-100 font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
+              <div className="mb-4">
+                <label className="text-xs font-black ml-1 uppercase tracking-tighter text-slate-500">Promo Code</label>
+                {/* Merged into one bordered control instead of two separate
+                    rounded boxes with a gap — same functionality, smaller
+                    footprint. */}
+                <div className="mt-1.5 flex h-8 items-center rounded-lg border border-slate-100 bg-slate-50 pr-1 focus-within:ring-2 focus-within:ring-blue-500">
+                  <Tag size={12} className="ml-2.5 shrink-0 text-slate-400" />
+                  <input
+                    type="text"
+                    value={promoInput}
+                    onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
+                    placeholder="Enter code"
+                    className="h-full min-w-0 flex-1 bg-transparent px-2 text-xs font-bold outline-none"
+                  />
                   <button
                     type="button"
                     onClick={applyPromo}
                     disabled={checkingPromo}
-                    className="rounded-xl bg-slate-800 px-5 text-sm font-bold text-white hover:bg-slate-900 disabled:opacity-50"
+                    className="shrink-0 rounded-md bg-slate-800 px-3 py-1 text-[11px] font-bold text-white hover:bg-slate-900 disabled:opacity-50"
                   >
                     {checkingPromo ? "..." : "Apply"}
                   </button>
@@ -291,9 +302,14 @@ export default function CheckoutPage() {
                 <SummaryRow label="Subtotal" value={`${subtotal.toLocaleString()} MMK`} />
                 <SummaryRow
                   label="Delivery Fee"
-                  value={deliveryFee > 0 ? `${deliveryFee.toLocaleString()} MMK` : "FREE"}
-                  isFree={deliveryFee === 0}
+                  value={effectiveDeliveryFee > 0 ? `${effectiveDeliveryFee.toLocaleString()} MMK` : "FREE"}
+                  isFree={effectiveDeliveryFee === 0}
                 />
+                {deliveryFee > 0 && !qualifiesForFreeDelivery && freeDeliveryThreshold > 0 && cartItems.length > 0 && (
+                  <p className="-mt-2 text-xs font-semibold text-blue-600">
+                    Add {amountToFreeDelivery.toLocaleString()} MMK more to get FREE delivery.
+                  </p>
+                )}
                 <SummaryRow label="Government Tax (5%)" value={`${tax.toLocaleString()} MMK`} />
                 {discount > 0 && <SummaryRow label="Promo Discount" value={`-${discount.toLocaleString()} MMK`} isFree />}
                 <div className="flex justify-between items-center pt-6 border-t border-slate-100 mt-4">
