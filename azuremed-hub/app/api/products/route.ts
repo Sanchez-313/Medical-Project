@@ -20,7 +20,7 @@ export async function GET(request: Request) {
   const search = searchParams.get("search")?.trim();
 
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT id, name, category, description, image_url, selling_price_ks, stock_qty, status
+    `SELECT id, name, category, description, image_url, selling_price_ks, stock_qty, reserved_qty, status
      FROM medicines
      WHERE is_active = 1
        AND (:category IS NULL OR category = :category)

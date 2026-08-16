@@ -10,7 +10,7 @@ export default async function ProductDetailPage({ params }: { params: { id: stri
   if (!Number.isInteger(medicineId)) notFound();
 
   const [[product]] = await pool.query<RowDataPacket[]>(
-    `SELECT id, name, category, description, image_url, selling_price_ks, stock_qty
+    `SELECT id, name, category, description, image_url, selling_price_ks, stock_qty, reserved_qty
      FROM medicines WHERE id = :id AND is_active = 1`,
     { id: medicineId }
   );
@@ -37,6 +37,7 @@ export default async function ProductDetailPage({ params }: { params: { id: stri
         image_url: product.image_url,
         selling_price_ks: product.selling_price_ks,
         stock_qty: product.stock_qty,
+        reserved_qty: product.reserved_qty,
       }}
       reviews={reviews as Array<{ id: number; rating: number; comment: string | null; created_at: string; reviewer_name: string }>}
       reviewCount={Number(summary.count)}

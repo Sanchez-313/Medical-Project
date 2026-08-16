@@ -1,13 +1,57 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { FaMinus, FaPlus, FaTrash } from "react-icons/fa";
 import { useCart } from "@/components/CartContext";
 
+/**
+ * "Reserved for MM:SS" countdown for one cart line — the item's hold on
+ * stock lapses server-side at reservedUntil (see lib/cartReservation.ts).
+ * Ticks locally every second rather than polling; once it reaches zero it
+ * calls onExpire so the panel re-fetches and the (now server-side-released)
+ * item actually disappears instead of sitting at "0:00" looking reserved.
+ */
+function ReservationCountdown({ reservedUntil, onExpire }: { reservedUntil: string | null; onExpire: () => void }) {
+  const [remainingMs, setRemainingMs] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!reservedUntil) {
+      setRemainingMs(null);
+      return;
+    }
+    // MySQL DATETIME string ("YYYY-MM-DD HH:MM:SS") has no timezone suffix;
+    // swapping the space for "T" gets a format every JS engine parses as
+    // local time, matching how it was written.
+    const target = new Date(reservedUntil.replace(" ", "T")).getTime();
+    const tick = () => {
+      const diff = target - Date.now();
+      setRemainingMs(diff);
+      if (diff <= 0) onExpire();
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [reservedUntil, onExpire]);
+
+  if (remainingMs === null || remainingMs <= 0) return null;
+
+  const totalSeconds = Math.ceil(remainingMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  const isUrgent = remainingMs < 2 * 60 * 1000;
+
+  return (
+    <span className={`text-[11px] font-semibold ${isUrgent ? "text-red-500" : "text-slate-400"}`}>
+      Reserved for {minutes}:{String(seconds).padStart(2, "0")}
+    </span>
+  );
+}
+
 /** Faithful port of Medical_Product/src/components/Cart/Cart.jsx. */
 export default function CartPanel() {
-  const { cartItems, activePanel, closePanel, updateCartQty, removeFromCart } = useCart();
+  const { cartItems, activePanel, closePanel, updateCartQty, removeFromCart, refreshCart } = useCart();
   const router = useRouter();
   const isOpen = activePanel === "cart";
   const subtotal = cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
@@ -52,13 +96,18 @@ export default function CartPanel() {
                     </button>
                     <span>{item.quantity}</span>
                     <button
-                      disabled={item.quantity >= item.stock_qty}
+                      // This item's own qty already counts toward reserved_qty, so the
+                      // room left to grow into is stock_qty - reserved_qty + this qty.
+                      disabled={item.quantity >= item.stock_qty - item.reserved_qty + item.quantity}
                       onClick={() => updateCartQty(item.medicineId, item.quantity + 1)}
                       className="w-7 h-7 bg-blue-600 rounded-full text-white flex justify-center items-center text-[14px] active:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                     >
                       <FaPlus />
                     </button>
                   </div>
+                </div>
+                <div className="mt-1.5">
+                  <ReservationCountdown reservedUntil={item.reservedUntil} onExpire={refreshCart} />
                 </div>
               </div>
             </div>

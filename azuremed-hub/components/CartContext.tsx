@@ -13,6 +13,11 @@ export interface CartItem {
   price: number;
   quantity: number;
   stock_qty: number;
+  reserved_qty: number;
+  // MySQL DATETIME string ("YYYY-MM-DD HH:MM:SS"), or null for rows created
+  // before this feature shipped. When this passes, the item's hold on stock
+  // has lapsed server-side — see lib/cartReservation.ts.
+  reservedUntil: string | null;
 }
 
 export interface WishlistItem {
@@ -37,6 +42,10 @@ interface CartContextValue {
   addToCart: (product: { id: number; name: string; category: string; image_url: string | null; price: number }, qty?: number) => Promise<void>;
   updateCartQty: (medicineId: number, qty: number) => Promise<void>;
   removeFromCart: (medicineId: number) => Promise<void>;
+  /** Re-fetches the cart from the server — exposed so a lapsed reservation
+   *  countdown (CartPanel) can drop its own item without waiting for the
+   *  next unrelated cart mutation to trigger a refresh. */
+  refreshCart: () => Promise<void>;
   toggleFavorite: (product: { id: number; name: string; category: string; image_url: string | null; price: number }) => void;
   isFavorite: (id: number) => boolean;
   removeFromWishlist: (id: number) => void;
@@ -105,6 +114,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
       showToast("Item added to cart");
       await refreshCart();
+      // Product listing/detail pages are Server Components — they fetch
+      // stock_qty/reserved_qty once per page load and have no way to know a
+      // client-side cart mutation just changed reserved_qty server-side.
+      // router.refresh() re-runs them against the current URL without a full
+      // reload, so "available" counts/out-of-stock state update immediately
+      // instead of only on the next real navigation.
+      router.refresh();
     },
     [userId, router, refreshCart, showToast]
   );
@@ -130,16 +146,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }
       }
       await refreshCart();
+      router.refresh();
     },
-    [refreshCart, showToast]
+    [refreshCart, router, showToast]
   );
 
   const removeFromCart = useCallback(
     async (medicineId: number) => {
       await fetch(`/api/cart/items/${medicineId}`, { method: "DELETE" });
       await refreshCart();
+      router.refresh();
     },
-    [refreshCart]
+    [refreshCart, router]
   );
 
   const isFavorite = useCallback((id: number) => wishlistItems.some((item) => item.id === id), [wishlistItems]);
@@ -182,6 +200,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     addToCart,
     updateCartQty,
     removeFromCart,
+    refreshCart,
     toggleFavorite,
     isFavorite,
     removeFromWishlist,

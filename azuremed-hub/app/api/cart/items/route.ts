@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import pool from "@/config/db";
 import { requireRole, ROLE_GROUPS } from "@/lib/rbac";
-import type { RowDataPacket, ResultSetHeader } from "mysql2";
+import { releaseExpiredReservations, getStockSnapshot, reservationExpiry } from "@/lib/cartReservation";
+import type { RowDataPacket } from "mysql2";
 
 export async function POST(request: Request) {
   const gate = await requireRole(ROLE_GROUPS.ANY_AUTHENTICATED);
@@ -12,29 +13,60 @@ export async function POST(request: Request) {
   const userId = Number(gate.session.user.id);
   const addQty = Math.max(1, Number(qty) || 1);
 
-  const [[medicine]] = await pool.query<RowDataPacket[]>(
-    "SELECT id, stock_qty FROM medicines WHERE id = :id AND is_active = 1",
-    { id: product_id }
-  );
-  if (!medicine) {
-    return NextResponse.json({ success: false, message: "Product not found" }, { status: 404 });
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // Clear any lapsed holds on this product first, so `available` below
+    // reflects reality rather than stock someone else abandoned 20 minutes
+    // ago.
+    await releaseExpiredReservations(connection, { medicineId: product_id });
+
+    const stock = await getStockSnapshot(connection, product_id);
+    if (!stock) {
+      await connection.rollback();
+      return NextResponse.json({ success: false, message: "Product not found" }, { status: 404 });
+    }
+
+    const [[existingRow]] = await connection.query<RowDataPacket[]>(
+      "SELECT qty FROM cart_items WHERE user_id = :userId AND medicine_id = :medicineId FOR UPDATE",
+      { userId, medicineId: product_id }
+    );
+    const existingQty: number = existingRow?.qty ?? 0;
+
+    // `available` already excludes this user's own existing reservation (it
+    // was subtracted into reserved_qty when that row was created/updated),
+    // so it's exactly "how much more can be added" — no separate math needed
+    // to avoid double-counting this user's own hold.
+    const additionalReserved = Math.min(addQty, stock.available);
+    if (additionalReserved <= 0) {
+      await connection.rollback();
+      return NextResponse.json({ success: false, message: "This product is out of stock" }, { status: 409 });
+    }
+
+    const newQty = existingQty + additionalReserved;
+    const reservedUntil = reservationExpiry();
+
+    await connection.query(
+      `INSERT INTO cart_items (user_id, medicine_id, qty, reserved_until)
+       VALUES (:userId, :medicineId, :qty, :reservedUntil)
+       ON DUPLICATE KEY UPDATE qty = :qty, reserved_until = :reservedUntil`,
+      { userId, medicineId: product_id, qty: newQty, reservedUntil }
+    );
+    await connection.query("UPDATE medicines SET reserved_qty = reserved_qty + :delta WHERE id = :id", {
+      delta: additionalReserved,
+      id: product_id,
+    });
+
+    await connection.commit();
+
+    const message =
+      additionalReserved < addQty ? `Only ${additionalReserved} more could be reserved — limited stock` : undefined;
+    return NextResponse.json({ success: true, message, data: { qty: newQty, reservedUntil } }, { status: 201 });
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
   }
-  if (medicine.stock_qty <= 0) {
-    return NextResponse.json({ success: false, message: "This product is out of stock" }, { status: 409 });
-  }
-
-  // Clamp on both paths — LEAST(...) alone only covers the ON DUPLICATE KEY
-  // UPDATE branch (a second add of the same item); the plain INSERT branch
-  // (first add) needs its own clamp or a single request could add more than
-  // the available stock straight into the cart.
-  const clampedQty = Math.min(addQty, medicine.stock_qty);
-
-  await pool.query<ResultSetHeader>(
-    `INSERT INTO cart_items (user_id, medicine_id, qty)
-     VALUES (:user_id, :medicine_id, :qty)
-     ON DUPLICATE KEY UPDATE qty = LEAST(qty + VALUES(qty), :stock)`,
-    { user_id: userId, medicine_id: product_id, qty: clampedQty, stock: medicine.stock_qty }
-  );
-
-  return NextResponse.json({ success: true }, { status: 201 });
 }
