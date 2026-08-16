@@ -26,7 +26,11 @@ export async function GET(request: Request) {
   const search = searchParams.get("search")?.trim();
   const category = searchParams.get("category")?.trim();
 
-  const conditions: string[] = [];
+  // Deactivated rows (is_active = 0 — e.g. the old placeholder catalog) stay
+  // out of the default Inventory view; without this, dropping a category
+  // never actually removes its tab here since the tab list is built from
+  // whatever categories come back from this query.
+  const conditions: string[] = ["is_active = 1"];
   const params: Record<string, string> = {};
   if (search) {
     conditions.push("name LIKE :search");
@@ -36,7 +40,7 @@ export async function GET(request: Request) {
     conditions.push("category = :category");
     params.category = category;
   }
-  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const where = `WHERE ${conditions.join(" AND ")}`;
 
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT id, name, sku, category, description, image_url, selling_price_ks, cost_price_ks,
@@ -216,6 +220,18 @@ export async function PATCH(request: Request) {
         { status: 400 }
       );
     }
+  }
+
+  // Deactivate / reactivate ("Delete"/"Restore" in the Inventory UI). A hard
+  // DELETE isn't safe here — sale_items/order_items/product_reviews/etc all
+  // reference medicines(id) without ON DELETE CASCADE, so removing a row
+  // that's ever been sold would fail on the FK constraint. is_active is the
+  // same soft-delete convention scripts/seed.js already uses for the old
+  // placeholder catalog; GET above already filters to is_active = 1, so a
+  // deactivated product just stops appearing without touching any history.
+  if (formData.has("is_active")) {
+    sets.push("is_active = :is_active");
+    params.is_active = formData.get("is_active") === "true" ? 1 : 0;
   }
 
   const status = computeStatus(

@@ -13,10 +13,19 @@ import {
   ChevronLeft,
   ChevronRight,
   Pencil,
+  Trash2,
   X as XIcon,
 } from "lucide-react";
+import DatePicker from "@/components/DatePicker";
 
-const CATEGORIES = ["English Medicine", "Myanmar Medicine", "Medical Equipment"];
+const CATEGORIES = [
+  "Fever, Cough & Cold",
+  "Fitness & Supplement",
+  "Sexual Wellness",
+  "Mother & Child",
+  "Traditional Medicine",
+  "Personal Care & Equipment",
+];
 
 const EMPTY_FORM = {
   id: null,
@@ -35,10 +44,9 @@ const EMPTY_FORM = {
  * Faithful port of Admin-Dashboard/src/components/InventoryDashboard/InventoryDashboard.jsx
  * (table, low-stock banner, pagination, stat cards). Field names adapted to
  * this project's real schema (stock_qty/selling_price_ks/reorder_level
- * instead of the old stock/price_ks/total_stock), and category tabs are
- * derived from whatever categories actually exist in the DB (Vitamins/
- * Topical/First Aid) instead of the old hardcoded English/Myanmar/Equipment
- * taxonomy, which doesn't exist in this schema's seed data.
+ * instead of the old stock/price_ks/total_stock). Category tabs are the real
+ * seeded taxonomy — see the comment above RAW_PRODUCTS in
+ * scripts/fullCatalog.js for the 6 categories and how products map to them.
  */
 export default function InventoryPage() {
   const [activeTab, setActiveTab] = useState("All Items");
@@ -55,6 +63,7 @@ export default function InventoryPage() {
   const [imagePreview, setImagePreview] = useState(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+  const [deactivatingId, setDeactivatingId] = useState(null);
 
   const loadItems = useCallback(() => {
     setIsLoading(true);
@@ -153,10 +162,33 @@ export default function InventoryPage() {
     loadItems();
   }
 
-  const categories = useMemo(
-    () => ["All Items", ...Array.from(new Set(items.map((item) => item.category)))],
-    [items]
-  );
+  // Soft-delete, not a hard DELETE — see the comment on the PATCH route's
+  // is_active handling. The product's order/sale history stays intact;
+  // it just stops appearing here and on the storefront. There's currently
+  // no "show deactivated items" view to undo this from — re-adding via
+  // "Add Product" (or a direct DB edit) is the only way back.
+  async function handleDeactivate(item) {
+    if (!window.confirm(`Remove "${item.name}" from the catalog? It will stop appearing on the site and here.`)) {
+      return;
+    }
+    setDeactivatingId(item.id);
+    const body = new FormData();
+    body.append("id", item.id);
+    body.append("is_active", "false");
+    const result = await fetch("/api/admin/medicines", { method: "PATCH", body }).then((r) => r.json());
+    setDeactivatingId(null);
+    if (!result.success) {
+      window.alert(result.message ?? "Could not remove product");
+      return;
+    }
+    loadItems();
+  }
+
+  // Fixed, not derived from `items` — `items` is the currently *filtered*
+  // result set (loadItems() passes activeTab as a `category` query param),
+  // so deriving tabs from it made every other category's tab disappear the
+  // moment you clicked one (items would only contain that one category).
+  const categories = ["All Items", ...CATEGORIES];
 
   const sortedItems = useMemo(
     () => [...items].sort((a, b) => Number(a.stock_qty) - Number(b.stock_qty) || a.id - b.id),
@@ -173,6 +205,34 @@ export default function InventoryPage() {
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = sortedItems.slice(indexOfFirstItem, indexOfLastItem);
 
+  // Ellipsis-truncated page list (e.g. 1,2,3…26,27,28) instead of rendering
+  // every page number — with 5 items/page a large catalog produces dozens
+  // of pages, which used to overflow into one long cramped row.
+  const pageNumbers = useMemo(() => {
+    const siblingCount = 1;
+    const totalVisible = siblingCount * 2 + 5; // first + last + current + 2 siblings + 2 ellipsis slots
+    if (totalVisible >= totalPages) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+
+    const leftSibling = Math.max(currentPage - siblingCount, 1);
+    const rightSibling = Math.min(currentPage + siblingCount, totalPages);
+    const showLeftEllipsis = leftSibling > 2;
+    const showRightEllipsis = rightSibling < totalPages - 1;
+
+    if (!showLeftEllipsis && showRightEllipsis) {
+      const leftRange = Array.from({ length: 3 + 2 * siblingCount }, (_, i) => i + 1);
+      return [...leftRange, "…", totalPages];
+    }
+    if (showLeftEllipsis && !showRightEllipsis) {
+      const count = 3 + 2 * siblingCount;
+      const rightRange = Array.from({ length: count }, (_, i) => totalPages - count + i + 1);
+      return [1, "…", ...rightRange];
+    }
+    const middleRange = Array.from({ length: rightSibling - leftSibling + 1 }, (_, i) => leftSibling + i);
+    return [1, "…", ...middleRange, "…", totalPages];
+  }, [currentPage, totalPages]);
+
   const stats = useMemo(() => {
     const outOfStockCount = sortedItems.filter((item) => Number(item.stock_qty) === 0).length;
     const totalValue = sortedItems.reduce(
@@ -187,7 +247,7 @@ export default function InventoryPage() {
     };
   }, [sortedItems, lowStockItems]);
 
-  const formatKyat = (val) => `${new Intl.NumberFormat("en-MM").format(Number(val || 0))} Ks`;
+  const formatKyat = (val) => `${new Intl.NumberFormat("en-MM").format(Number(val || 0))} MMK`;
 
   return (
     <div>
@@ -215,7 +275,7 @@ export default function InventoryPage() {
           { label: "စုစုပေါင်းပစ္စည်း", val: stats.totalItems, icon: <Layers className="text-blue-500" />, color: "bg-blue-50" },
           { label: "စတော့ကုန်", val: stats.outOfStockCount, icon: <AlertCircle className="text-red-500" />, color: "bg-red-50" },
           { label: "စတော့နည်း", val: stats.lowStockCount, icon: <AlertTriangle className="text-orange-500" />, color: "bg-orange-50" },
-          { label: "စတော့တန်ဖိုး (Ks)", val: formatKyat(stats.totalValue), icon: <Banknote className="text-emerald-500" />, color: "bg-emerald-500/10" },
+          { label: "စတော့တန်ဖိုး (MMK)", val: formatKyat(stats.totalValue), icon: <Banknote className="text-emerald-500" />, color: "bg-emerald-500/10" },
         ].map((stat) => (
           <div key={stat.label} className="flex items-center gap-5 rounded-[2rem] border border-slate-100 bg-white p-6 shadow-sm">
             <div className={`flex size-14 shrink-0 items-center justify-center rounded-2xl ${stat.color}`}>{stat.icon}</div>
@@ -268,8 +328,8 @@ export default function InventoryPage() {
                 <th className="px-6 py-5">SKU</th>
                 <th className="px-6 py-5">အမျိုးအစား</th>
                 <th className="px-6 py-5">စတော့</th>
-                <th className="px-6 py-5">ဈေးနှုန်း (Ks)</th>
-                <th className="px-6 py-5">Edit</th>
+                <th className="px-6 py-5">ဈေးနှုန်း (MMK)</th>
+                <th className="px-6 py-5">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -304,7 +364,6 @@ export default function InventoryPage() {
                           </div>
                           <div>
                             <p className="text-sm font-black text-slate-800">{item.name}</p>
-                            <p className="text-[10px] font-bold uppercase text-slate-400">ID #{item.id}</p>
                           </div>
                         </div>
                       </td>
@@ -324,13 +383,23 @@ export default function InventoryPage() {
                       </td>
                       <td className="px-6 py-5 text-sm font-black text-slate-900">{formatKyat(item.selling_price_ks)}</td>
                       <td className="px-6 py-5">
-                        <button
-                          type="button"
-                          onClick={() => openEdit(item)}
-                          className="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2 text-xs font-black text-slate-600 hover:bg-slate-200"
-                        >
-                          <Pencil size={14} /> Edit
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openEdit(item)}
+                            className="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2 text-xs font-black text-slate-600 hover:bg-slate-200"
+                          >
+                            <Pencil size={14} /> Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeactivate(item)}
+                            disabled={deactivatingId === item.id}
+                            className="inline-flex items-center gap-2 rounded-xl bg-red-50 px-4 py-2 text-xs font-black text-red-600 hover:bg-red-100 disabled:opacity-50"
+                          >
+                            <Trash2 size={14} /> {deactivatingId === item.id ? "Removing…" : "Delete"}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -354,9 +423,15 @@ export default function InventoryPage() {
             >
               <ChevronLeft size={16} />
             </button>
-            {[...Array(totalPages)].map((_, i) => {
-              const pageNum = i + 1;
-              return (
+            {pageNumbers.map((pageNum, i) =>
+              pageNum === "…" ? (
+                <span
+                  key={`ellipsis-${i}`}
+                  className="flex h-9 min-w-[36px] items-center justify-center text-xs font-black text-slate-400"
+                >
+                  …
+                </span>
+              ) : (
                 <button
                   key={pageNum}
                   onClick={() => setCurrentPage(pageNum)}
@@ -368,8 +443,8 @@ export default function InventoryPage() {
                 >
                   {pageNum}
                 </button>
-              );
-            })}
+              )
+            )}
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
@@ -456,7 +531,7 @@ export default function InventoryPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Selling Price (Ks)</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Selling Price (MMK)</label>
                   <input
                     type="number"
                     required
@@ -468,7 +543,7 @@ export default function InventoryPage() {
                 </div>
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    Cost Price (Ks) <span className="text-purple-500">&middot; Owner only</span>
+                    Cost Price (MMK) <span className="text-purple-500">&middot; Admin only</span>
                   </label>
                   <input
                     type="number"
@@ -505,12 +580,13 @@ export default function InventoryPage() {
                 </div>
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Expiry Date</label>
-                  <input
-                    type="date"
-                    value={form.expiry_date}
-                    onChange={(e) => setForm((f) => ({ ...f, expiry_date: e.target.value }))}
-                    className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-50"
-                  />
+                  <div className="mt-1">
+                    <DatePicker
+                      value={form.expiry_date}
+                      onChange={(iso) => setForm((f) => ({ ...f, expiry_date: iso }))}
+                      placeholder="No expiry set"
+                    />
+                  </div>
                 </div>
               </div>
 

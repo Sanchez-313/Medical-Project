@@ -14,7 +14,15 @@ interface Product {
   stock_qty: number;
 }
 
-const CATEGORIES = ["All", "English Medicine", "Myanmar Medicine", "Medical Equipment"];
+const CATEGORIES = [
+  "All",
+  "Fever, Cough & Cold",
+  "Fitness & Supplement",
+  "Sexual Wellness",
+  "Mother & Child",
+  "Traditional Medicine",
+  "Personal Care & Equipment",
+];
 
 /** Faithful port of Medical_Product/src/components/Products/Products.jsx + Heading.jsx (light theme). */
 export default function HomeProductsSection() {
@@ -60,7 +68,7 @@ export default function HomeProductsSection() {
         <p className="mx-12 mt-8 text-center text-slate-500">No products found in this category.</p>
       )}
 
-      <div className="py-10 my-16 mx-auto w-fit">
+      <div className="py-10 my-16 mx-auto w-fit mt-0">
         <Link
           href="/products"
           className="bg-gradient-to-b from-indigo-400 to-indigo-500 text-white px-8 py-3 rounded-lg md:text-lg text-md hover:scale-110 hover:bg-gradient-to-l hover:to-indigo-600 transition-all duration-300 cursor-pointer inline-block"

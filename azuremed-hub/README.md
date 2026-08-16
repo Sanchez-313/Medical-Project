@@ -29,3 +29,22 @@ Follow-up (same pattern, not yet built out): remaining CRUD pages (customers,
 deliveries, reports UI + Recharts), porting the `Medical_Product` storefront
 pages into `app/(storefront)`, and a data-migration script from
 `backend/database/app.sqlite` into MySQL.
+
+## Telegram bot integration
+
+The storefront's "Need Help?" button (`components/NeedHelpButton.tsx`) opens
+`@medicalbot` on Telegram (`../Telegram-bot/medicalbot`). That bot talks to
+this app over HTTP, not to MySQL directly:
+
+- `GET /api/products` — same public endpoint the storefront uses, so the
+  bot's medicine search/pricing/stock always matches the live catalog.
+- `POST` / `GET /api/support/telegram` — lets a Telegram user submit a
+  support question and check its status, without a website login. Gated by
+  a shared secret (`BOT_API_SECRET`, sent as the `x-bot-secret` header) since
+  there's no session to check. Submitted questions show up in
+  `/staff/queries` like any other, attributed to a dedicated inactive
+  "Telegram Bot" service account (`lib/telegramBot.ts`) with the real
+  asker's chat id/username kept on the row (`customer_queries.telegram_*`).
+
+Set `BOT_API_SECRET` in both this app's `.env` and the bot's `.env` (same
+value) for the support features to work — see `.env.example`.

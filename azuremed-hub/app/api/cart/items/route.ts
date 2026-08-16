@@ -19,12 +19,21 @@ export async function POST(request: Request) {
   if (!medicine) {
     return NextResponse.json({ success: false, message: "Product not found" }, { status: 404 });
   }
+  if (medicine.stock_qty <= 0) {
+    return NextResponse.json({ success: false, message: "This product is out of stock" }, { status: 409 });
+  }
+
+  // Clamp on both paths — LEAST(...) alone only covers the ON DUPLICATE KEY
+  // UPDATE branch (a second add of the same item); the plain INSERT branch
+  // (first add) needs its own clamp or a single request could add more than
+  // the available stock straight into the cart.
+  const clampedQty = Math.min(addQty, medicine.stock_qty);
 
   await pool.query<ResultSetHeader>(
     `INSERT INTO cart_items (user_id, medicine_id, qty)
      VALUES (:user_id, :medicine_id, :qty)
      ON DUPLICATE KEY UPDATE qty = LEAST(qty + VALUES(qty), :stock)`,
-    { user_id: userId, medicine_id: product_id, qty: addQty, stock: medicine.stock_qty }
+    { user_id: userId, medicine_id: product_id, qty: clampedQty, stock: medicine.stock_qty }
   );
 
   return NextResponse.json({ success: true }, { status: 201 });

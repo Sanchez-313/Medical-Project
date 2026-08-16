@@ -1,12 +1,16 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
 import { IoIosArrowForward } from "react-icons/io";
+import { useLanguage } from "@/components/LanguageContext";
 
 /** Ported from Medical_Product/src/components/Footer/Footer.jsx, compacted (the
  *  original's `h-[5vh]` newsletter input and py-10/gap-y-12/text-2xl spacing
  *  made this section render unusually tall on some viewports). */
 export default function Footer() {
   const currentYear = new Date().getFullYear();
+  const { t } = useLanguage();
 
   return (
     <footer className="bg-zinc-100 py-6">
@@ -30,47 +34,42 @@ export default function Footer() {
             </div>
           </Link>
 
-          <p className="text-sm text-zinc-600 mt-3 max-w-[350px]">
-            AzureMed Hub helps customers discover trusted medicines, practical
-            equipment, and healthcare support in one simple storefront.
-          </p>
+          <p className="text-sm text-zinc-600 mt-3 max-w-[350px]">{t("footer.tagline")}</p>
 
-          <p className="text-xs text-zinc-800 mt-3">{currentYear} &copy; All Rights Reserved</p>
+          <p className="text-xs text-zinc-800 mt-3">{currentYear} &copy; {t("footer.rightsReserved")}</p>
         </div>
 
         <ul className="flex-1">
           <li>
-            <h5 className="text-zinc-800 text-base font-bold">Company</h5>
+            <h5 className="text-zinc-800 text-base font-bold">{t("footer.company")}</h5>
           </li>
           <li className="mt-3">
-            <Link href="/" className="text-sm text-zinc-800 hover:text-indigo-500">About</Link>
+            <Link href="/about" className="text-sm text-zinc-800 hover:text-indigo-500">{t("footer.about")}</Link>
           </li>
           <li className="mt-2">
-            <Link href="/" className="text-sm text-zinc-800 hover:text-indigo-500">FAQ&apos;s</Link>
+            <Link href="/#faq" className="text-sm text-zinc-800 hover:text-indigo-500">{t("footer.faq")}</Link>
           </li>
         </ul>
 
         <ul className="flex-1">
           <li>
-            <h5 className="text-zinc-800 text-base font-bold">Support</h5>
+            <h5 className="text-zinc-800 text-base font-bold">{t("footer.support")}</h5>
           </li>
           <li className="mt-3">
-            <Link href="/support" className="text-sm text-zinc-800 hover:text-indigo-500">Support Center</Link>
+            <Link href="/support" className="text-sm text-zinc-800 hover:text-indigo-500">{t("footer.supportCenter")}</Link>
           </li>
           <li className="mt-2">
-            <Link href="/" className="text-sm text-zinc-800 hover:text-indigo-500">Feedback</Link>
+            <Link href="/contact" className="text-sm text-zinc-800 hover:text-indigo-500">{t("footer.feedback")}</Link>
           </li>
         </ul>
 
         <div className="flex-1">
-          <h5 className="text-zinc-800 text-base font-bold">Stay Connected</h5>
-          <p className="mt-3 text-sm text-zinc-600">
-            Questions or Feedback? We&apos;d love to hear from you
-          </p>
+          <h5 className="text-zinc-800 text-base font-bold">{t("footer.stayConnected")}</h5>
+          <p className="mt-3 text-sm text-zinc-600">{t("footer.feedbackPrompt")}</p>
           <div className="flex bg-white p-1 rounded-lg mt-3">
             <input
               type="email"
-              placeholder="Email Address"
+              placeholder={t("footer.emailPlaceholder")}
               className="h-9 pl-4 flex-1 text-sm focus:outline-none"
             />
             <button className="bg-gradient-to-b from-indigo-400 to-indigo-600 p-2 rounded-lg text-white hover:to-amber-600 cursor-pointer">

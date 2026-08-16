@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BarChart3, Download } from "lucide-react";
-import DateRangeCalendar from "@/components/DateRangeCalendar";
 
 function isoDate(date) {
   return date.toISOString().slice(0, 10);
@@ -11,15 +10,61 @@ function isoDate(date) {
 const DEFAULT_TO = isoDate(new Date());
 const DEFAULT_FROM = isoDate(new Date(Date.now() - 29 * 24 * 60 * 60 * 1000));
 
+function openDatePicker(input) {
+  if (!input) return;
+  input.focus();
+  if (typeof input.showPicker === "function") {
+    try {
+      input.showPicker();
+    } catch {
+      // Some browsers only allow showPicker during a direct user gesture.
+    }
+  }
+}
+
+function DateInput({ label, value, onChange, min, max }) {
+  const inputRef = useRef(null);
+
+  return (
+    <label className="block">
+      <span className="mb-1 block text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</span>
+      <span className="relative block">
+        <input
+          ref={inputRef}
+          type="date"
+          value={value}
+          min={min}
+          max={max}
+          onClick={() => openDatePicker(inputRef.current)}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full cursor-pointer rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-bold text-slate-700 outline-none transition-all hover:border-blue-300 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-50"
+        />
+      </span>
+    </label>
+  );
+}
+
 /**
  * The original ReportsDashboard.jsx also covered customer reviews/ratings,
  * which have no table in this schema yet — this page shows what IS real
- * (sales-based reporting), now with a date-range calendar to review any
- * period day by day, plus a CSV export of that period.
+ * (sales-based reporting), now with independent From/To date inputs that
+ * open the browser calendar on click, plus a CSV export of that period.
  */
 export default function ReportsPage() {
   const [from, setFrom] = useState(DEFAULT_FROM);
   const [to, setTo] = useState(DEFAULT_TO);
+
+  // Keep the range valid — dragging one end past the other swaps rather
+  // than silently producing an inverted (from > to) range the API would
+  // just interpret oddly.
+  function handleFromChange(nextFrom) {
+    setFrom(nextFrom);
+    if (nextFrom > to) setTo(nextFrom);
+  }
+  function handleToChange(nextTo) {
+    setTo(nextTo);
+    if (nextTo < from) setFrom(nextTo);
+  }
   const [data, setData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -60,15 +105,8 @@ export default function ReportsPage() {
         </div>
 
         <div className="flex flex-wrap items-end gap-3">
-          <DateRangeCalendar
-            from={from}
-            to={to}
-            maxDate={DEFAULT_TO}
-            onChange={(nextFrom, nextTo) => {
-              setFrom(nextFrom);
-              setTo(nextTo);
-            }}
-          />
+          <DateInput label="From" value={from} max={to} onChange={handleFromChange} />
+          <DateInput label="To" value={to} min={from} onChange={handleToChange} />
           <a
             href={exportUrl}
             download
@@ -89,13 +127,13 @@ export default function ReportsPage() {
         <div className="rounded-[2rem] border border-slate-100 bg-white p-6 shadow-sm">
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Revenue</p>
           <p className="mt-2 text-2xl font-black text-slate-900">
-            {isLoading ? "…" : `${Number(totals?.totalRevenueKs ?? 0).toLocaleString()} Ks`}
+            {isLoading ? "…" : `${Number(totals?.totalRevenueKs ?? 0).toLocaleString()} MMK`}
           </p>
         </div>
         <div className="rounded-[2rem] border border-slate-100 bg-white p-6 shadow-sm">
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Average Sale</p>
           <p className="mt-2 text-2xl font-black text-slate-900">
-            {isLoading ? "…" : `${Math.round(Number(totals?.avgSaleKs ?? 0)).toLocaleString()} Ks`}
+            {isLoading ? "…" : `${Math.round(Number(totals?.avgSaleKs ?? 0)).toLocaleString()} MMK`}
           </p>
         </div>
       </div>
@@ -131,7 +169,7 @@ export default function ReportsPage() {
                           {new Date(row.date).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
                         </td>
                         <td className="px-6 py-3 text-sm text-slate-600">{row.saleCount}</td>
-                        <td className="px-6 py-3 text-sm font-black text-slate-900">{Number(row.revenueKs).toLocaleString()} Ks</td>
+                        <td className="px-6 py-3 text-sm font-black text-slate-900">{Number(row.revenueKs).toLocaleString()} MMK</td>
                       </tr>
                     ))}
               </tbody>
@@ -163,7 +201,7 @@ export default function ReportsPage() {
                   <tr key={row.payment_method}>
                     <td className="px-8 py-4 text-sm font-black text-slate-800 uppercase">{row.payment_method}</td>
                     <td className="px-6 py-4 text-sm text-slate-600">{row.count}</td>
-                    <td className="px-6 py-4 text-sm font-bold text-slate-900">{Number(row.totalKs).toLocaleString()} Ks</td>
+                    <td className="px-6 py-4 text-sm font-bold text-slate-900">{Number(row.totalKs).toLocaleString()} MMK</td>
                   </tr>
                 ))}
             </tbody>

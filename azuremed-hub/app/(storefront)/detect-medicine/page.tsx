@@ -45,15 +45,24 @@ export default function DetectMedicinePage() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
+      // Don't attach to videoRef.current here — the <video> element only
+      // mounts once cameraActive flips true (it's behind that conditional
+      // below), so the ref is still null at this point. The effect below
+      // attaches the stream once the element actually exists.
       setCameraActive(true);
     } catch {
       setErrorMessage("Camera access was denied or is unavailable. You can still upload a photo instead.");
     }
   }
+
+  useEffect(() => {
+    if (cameraActive && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch(() => {
+        setErrorMessage("Could not start the camera preview. You can still upload a photo instead.");
+      });
+    }
+  }, [cameraActive]);
 
   function stopCamera() {
     streamRef.current?.getTracks().forEach((track) => track.stop());

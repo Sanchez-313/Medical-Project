@@ -114,15 +114,24 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (qty <= 0) {
         await fetch(`/api/cart/items/${medicineId}`, { method: "DELETE" });
       } else {
-        await fetch(`/api/cart/items/${medicineId}`, {
+        const result = await fetch(`/api/cart/items/${medicineId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ qty }),
-        });
+        }).then((r) => r.json());
+        // Not fatal either way — refreshCart() below re-syncs the true DB
+        // state regardless, but without this the user gets no explanation
+        // when a quantity bump silently gets rejected or clamped (e.g. stock
+        // ran out or dropped below what they asked for after page load).
+        if (!result.success) {
+          showToast(result.message ?? "Could not update quantity");
+        } else if (result.data?.qty && result.data.qty < qty) {
+          showToast(`Only ${result.data.qty} in stock`);
+        }
       }
       await refreshCart();
     },
-    [refreshCart]
+    [refreshCart, showToast]
   );
 
   const removeFromCart = useCallback(

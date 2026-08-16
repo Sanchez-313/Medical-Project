@@ -8,6 +8,15 @@ import Link from "next/link";
 import { EyeIcon, EyeOffIcon, XIcon } from "lucide-react";
 import { getRecaptchaToken } from "@/lib/recaptchaClient";
 import { FaFacebook, FaGoogle, FaTelegram, FaViber } from "react-icons/fa6";
+import { validatePasswordStrength, PASSWORD_RULES_TEXT } from "@/lib/passwordRules";
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+interface FieldErrors {
+  firstName?: string;
+  email?: string;
+  password?: string;
+}
 
 /**
  * Faithful port of Medical_Product/src/components/LogIn/SignUp.jsx. Changed:
@@ -24,14 +33,28 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
 
-    if (!firstName.trim() || !email.trim() || password.length < 8) {
-      setError("Please enter name, valid email, and password (min 8 chars).");
+    const nextFieldErrors: FieldErrors = {};
+    if (!firstName.trim()) {
+      nextFieldErrors.firstName = "First name is required.";
+    }
+    if (!email.trim()) {
+      nextFieldErrors.email = "Email is required.";
+    } else if (!EMAIL_PATTERN.test(email.trim())) {
+      nextFieldErrors.email = "Enter a valid email address (e.g. name@example.com).";
+    }
+    const passwordError = validatePasswordStrength(password);
+    if (passwordError) {
+      nextFieldErrors.password = passwordError;
+    }
+    setFieldErrors(nextFieldErrors);
+    if (Object.keys(nextFieldErrors).length > 0) {
       return;
     }
 
@@ -110,9 +133,15 @@ export default function RegisterPage() {
                     type="text"
                     placeholder="e.g. John"
                     value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                    onChange={(e) => {
+                      setFirstName(e.target.value);
+                      setFieldErrors((prev) => ({ ...prev, firstName: undefined }));
+                    }}
+                    className={`mt-1 w-full rounded-xl border bg-slate-50 p-3 text-sm outline-none transition-all focus:ring-2 ${
+                      fieldErrors.firstName ? "border-red-400 focus:ring-red-50" : "border-slate-200 focus:ring-blue-500"
+                    }`}
                   />
+                  {fieldErrors.firstName && <p className="mt-1 text-xs font-semibold text-red-600">{fieldErrors.firstName}</p>}
                 </div>
                 <div className="w-1/2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Last Name</label>
@@ -132,9 +161,15 @@ export default function RegisterPage() {
                   type="email"
                   placeholder="name@healthcare.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setFieldErrors((prev) => ({ ...prev, email: undefined }));
+                  }}
+                  className={`mt-1 w-full rounded-xl border bg-slate-50 p-3 text-sm outline-none transition-all focus:ring-2 ${
+                    fieldErrors.email ? "border-red-400 focus:ring-red-50" : "border-slate-200 focus:ring-blue-500"
+                  }`}
                 />
+                {fieldErrors.email && <p className="mt-1 text-xs font-semibold text-red-600">{fieldErrors.email}</p>}
               </div>
 
               <div className="relative">
@@ -143,13 +178,23 @@ export default function RegisterPage() {
                   type={showPassword ? "text" : "password"}
                   placeholder="Minimum 8 characters"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setFieldErrors((prev) => ({ ...prev, password: undefined }));
+                  }}
                   minLength={8}
-                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                  className={`mt-1 w-full rounded-xl border bg-slate-50 p-3 text-sm outline-none transition-all focus:ring-2 ${
+                    fieldErrors.password ? "border-red-400 focus:ring-red-50" : "border-slate-200 focus:ring-blue-500"
+                  }`}
                 />
                 <button type="button" onClick={() => setShowPassword((prev) => !prev)} className="absolute right-3 top-11 text-slate-400 hover:text-blue-600">
                   {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
                 </button>
+                {fieldErrors.password ? (
+                  <p className="mt-1 text-xs font-semibold text-red-600">{fieldErrors.password}</p>
+                ) : (
+                  <p className="mt-1 text-xs text-slate-400">{PASSWORD_RULES_TEXT}</p>
+                )}
               </div>
 
               {error && <p className="text-sm text-red-600">{error}</p>}

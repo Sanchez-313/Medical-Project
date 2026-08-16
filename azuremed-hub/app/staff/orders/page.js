@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { ClipboardList } from "lucide-react";
+import Pagination from "@/components/Pagination";
+
+const ITEMS_PER_PAGE = 10;
 
 const STATUS_BADGE = {
   pending: "bg-slate-100 text-slate-600",
@@ -28,12 +31,16 @@ export default function StaffOrdersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [reviewOrder, setReviewOrder] = useState(null);
   const [busyId, setBusyId] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   function loadOrders() {
     setIsLoading(true);
     return fetch("/api/staff/orders")
       .then((r) => r.json())
-      .then((result) => setOrders(result.success ? result.data : []))
+      .then((result) => {
+        setOrders(result.success ? result.data : []);
+        setCurrentPage(1);
+      })
       .finally(() => setIsLoading(false));
   }
 
@@ -72,6 +79,9 @@ export default function StaffOrdersPage() {
     }
   }
 
+  const indexOfLastItem = currentPage * ITEMS_PER_PAGE;
+  const currentItems = orders.slice(indexOfLastItem - ITEMS_PER_PAGE, indexOfLastItem);
+
   return (
     <div>
       <div className="mb-8">
@@ -100,7 +110,7 @@ export default function StaffOrdersPage() {
               <tr><td colSpan={7} className="px-8 py-16 text-center font-bold text-slate-400">No orders yet.</td></tr>
             )}
             {!isLoading &&
-              orders.map((order) => {
+              currentItems.map((order) => {
                 const next = NEXT_STATUS[order.status];
                 return (
                   <tr key={order.id} className="hover:bg-slate-50/50">
@@ -114,7 +124,7 @@ export default function StaffOrdersPage() {
                     </td>
                     <td className="px-6 py-5 text-sm text-slate-600">{order.shipping_name}</td>
                     <td className="px-6 py-5 text-sm font-black text-slate-900">
-                      {Number(order.total_ks).toLocaleString()} Ks
+                      {Number(order.total_ks).toLocaleString()} MMK
                     </td>
                     <td className="px-6 py-5 text-xs font-bold uppercase text-slate-500">{order.payment_method}</td>
                     <td className="px-6 py-5">
@@ -168,6 +178,13 @@ export default function StaffOrdersPage() {
               })}
           </tbody>
         </table>
+
+        <Pagination
+          currentPage={currentPage}
+          totalItems={orders.length}
+          itemsPerPage={ITEMS_PER_PAGE}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       {reviewOrder && (
@@ -175,7 +192,7 @@ export default function StaffOrdersPage() {
           <div className="w-full max-w-lg rounded-[2rem] bg-white p-8 shadow-2xl">
             <h3 className="text-xl font-black text-slate-900">Review KBZ Pay Payment</h3>
             <p className="mt-1 text-sm text-slate-500">
-              Order <span className="font-bold text-slate-700">{reviewOrder.order_code}</span> — {Number(reviewOrder.total_ks).toLocaleString()} Ks
+              Order <span className="font-bold text-slate-700">{reviewOrder.order_code}</span> — {Number(reviewOrder.total_ks).toLocaleString()} MMK
             </p>
 
             <div className="mt-6 overflow-hidden rounded-2xl border border-slate-100 bg-slate-50">

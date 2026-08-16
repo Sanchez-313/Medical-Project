@@ -117,7 +117,7 @@ export default function OrdersPage() {
                   <td className="px-6 py-5 text-sm text-slate-600">{order.customer_name ?? "Walk-in"}</td>
                   <td className="px-6 py-5 text-sm text-slate-600">{order.handled_by ?? "—"}</td>
                   <td className="px-6 py-5 text-sm font-black text-slate-900">
-                    {Number(order.total_ks).toLocaleString()} Ks
+                    {Number(order.total_ks).toLocaleString()} MMK
                   </td>
                   <td className="px-6 py-5 text-xs font-bold uppercase text-slate-500">{order.payment_method}</td>
                   <td className="px-6 py-5">
@@ -191,7 +191,7 @@ export default function OrdersPage() {
           <div className="w-full max-w-lg rounded-[2rem] bg-white p-8 shadow-2xl">
             <h3 className="text-xl font-black text-slate-900">Review KBZ Pay Payment</h3>
             <p className="mt-1 text-sm text-slate-500">
-              Order <span className="font-bold text-slate-700">{reviewOrder.code}</span> — {Number(reviewOrder.total_ks).toLocaleString()} Ks
+              Order <span className="font-bold text-slate-700">{reviewOrder.code}</span> — {Number(reviewOrder.total_ks).toLocaleString()} MMK
             </p>
 
             <div className="mt-6 overflow-hidden rounded-2xl border border-slate-100 bg-slate-50">

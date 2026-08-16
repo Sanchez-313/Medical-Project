@@ -10,7 +10,7 @@ export const metadata = {
 
 export default async function PortalLayout({ children }) {
   const session = await getServerSession(authOptions);
-  if (!session?.user || !["owner", "staff", "agent"].includes(session.user.role)) {
+  if (!session?.user || !["admin", "staff", "agent"].includes(session.user.role)) {
     redirect("/login");
   }
 
@@ -26,9 +26,6 @@ export default async function PortalLayout({ children }) {
           </a>
           <a href="/" className="rounded px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800">
             Public Site
-          </a>
-          <a href="/account/security" className="rounded px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800">
-            Security
           </a>
         </nav>
         <div className="mt-4">

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Boxes, ShoppingCart, ClipboardList, MessageCircle, Lock } from "lucide-react";
+import { LayoutDashboard, Boxes, ShoppingCart, ClipboardList, MessageCircle, AlertTriangle } from "lucide-react";
 import LogoutButton from "@/components/LogoutButton";
 
 /**
@@ -24,17 +24,13 @@ const NAV_GROUPS = [
       { name: "Customer Queries", path: "/staff/queries", icon: MessageCircle },
     ],
   },
-  {
-    label: "Account",
-    items: [{ name: "Security", path: "/account/security", icon: Lock }],
-  },
 ];
 
-export default function StaffSidebar({ userName }) {
+export default function StaffSidebar({ userName, lowStockCount = 0 }) {
   const pathname = usePathname();
 
   return (
-    <aside className="fixed left-0 top-0 flex h-screen w-64 flex-col border-r border-slate-200 bg-white">
+    <aside className="fixed left-0 top-0 flex h-full w-64 flex-col border-r border-slate-200 bg-white">
       <div className="flex items-center gap-2 border-b border-slate-100 p-6">
         <Image src="/images/logo.png" alt="Logo" width={40} height={40} className="h-10 w-10 object-contain" />
         <div className="flex flex-col leading-none">
@@ -70,6 +66,18 @@ export default function StaffSidebar({ userName }) {
             </div>
           </div>
         ))}
+
+        {lowStockCount > 0 && (
+          <Link
+            href="/staff/products"
+            className="mt-2 flex items-center gap-3 rounded-xl border border-orange-100 bg-orange-50 px-4 py-3 text-sm font-bold text-orange-700 transition-all hover:bg-orange-100"
+          >
+            <AlertTriangle size={18} className="shrink-0" />
+            <span>
+              {lowStockCount} product{lowStockCount === 1 ? "" : "s"} low on stock
+            </span>
+          </Link>
+        )}
       </nav>
 
       <div className="border-t border-slate-100 p-4">

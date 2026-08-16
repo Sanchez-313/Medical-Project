@@ -50,7 +50,7 @@ export default function MedicineDetectionCard({
   const accuracyPct = Math.round(detection.confidence * 100);
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
       <div className="flex items-start gap-4 border-b border-slate-100 p-5 dark:border-slate-800">
         {medicineDetail?.matched && (
           <div className="relative size-16 shrink-0 overflow-hidden rounded-xl bg-slate-50 dark:bg-slate-800">
@@ -61,9 +61,9 @@ export default function MedicineDetectionCard({
             )}
           </div>
         )}
-        <div className="flex flex-1 items-start justify-between gap-4">
-          <div>
-            <p className="text-lg font-bold text-slate-800 dark:text-slate-100">
+        <div className="flex min-w-0 flex-1 flex-wrap items-start justify-between gap-x-4 gap-y-2">
+          <div className="min-w-0">
+            <p className="break-words text-lg font-bold text-slate-800 dark:text-slate-100">
               {medicineDetail?.name ?? detection.predictedClass ?? "No prediction"}
             </p>
             {medicineDetail?.expireDate && (
@@ -77,16 +77,15 @@ export default function MedicineDetectionCard({
       </div>
 
       <div className="space-y-4 p-5">
-        {!medicineDetail && detection.status !== "NO_MATCH" && (
-          <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-            The AI isn&apos;t confident enough to look this up in the catalog yet. Try a clearer, closer photo.
-          </p>
-        )}
-
-        {medicineDetail && !medicineDetail.matched && (
-          <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-700">
-            Recognized as <span className="font-semibold">{medicineDetail.name}</span>, but it isn&apos;t in our
-            catalog yet — no stock, pricing, or description on file.
+        {/* Only a High Confidence (>=92%) catalog match gets shown as a real
+            result — anything else (low confidence, or recognized but not in
+            the catalog) is a single, plain error rather than two different
+            softened messages. */}
+        {!medicineDetail?.matched && (
+          <p className="rounded-xl border border-red-100 bg-red-50 p-4 text-sm font-medium text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-400">
+            {medicineDetail
+              ? `Recognized as "${medicineDetail.name}", but it isn't in our catalog — no stock, pricing, or description on file.`
+              : "Could not confidently detect this medicine. Please try a clearer, closer photo."}
           </p>
         )}
 

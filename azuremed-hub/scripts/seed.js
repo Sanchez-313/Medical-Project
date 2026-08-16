@@ -5,11 +5,12 @@ const bcrypt = require("bcryptjs");
 const pool = require("../config/db");
 const { FULL_CATALOG } = require("./fullCatalog");
 
-const DEMO_USERS = [
-  { name: "Owner Account", email: "owner@azuremedhub.com", password: "OwnerPass123!", role: "owner" },
-  { name: "Staff Account", email: "staff@azuremedhub.com", password: "StaffPass123!", role: "staff" },
-  { name: "Agent Account", email: "agent@azuremedhub.com", password: "AgentPass123!", role: "agent" },
-];
+// No demo accounts here on purpose — dravenkai2@gmail.com is the real admin
+// account, and Oak Soe Moe is the real staff account. The seeded
+// owner@azuremedhub.com / staff@azuremedhub.com / agent@azuremedhub.com
+// placeholders were all deleted (each had zero associated orders/sales/etc,
+// so no cleanup needed beyond the row itself).
+const DEMO_USERS = [];
 
 // Earlier hand-picked 14-item placeholder catalog — superseded by the real
 // 89-product FULL_CATALOG (ported from ProductList.js). Deactivated, not
@@ -29,27 +30,9 @@ async function deactivateOldPlaceholderCatalog() {
   console.log(`Deactivated ${result.affectedRows} old placeholder medicines.`);
 }
 
-const DEMO_REVIEWS = [
-  { name: "Yan Naing", title: "Decent overall", comment: "Everything was fine, but delivery took a little longer than expected.", rating: 4, avatar_url: "/images/Customers/customer2.jpg" },
-  { name: "Nilar Win", title: "Smooth experience", comment: "Website was easy to use and delivery tracking was helpful.", rating: 4, avatar_url: "/images/Customers/customer3.jpg" },
-  { name: "Ko Zeya", title: "Great quality", comment: "The products were exactly as described and packaging was safe.", rating: 5, avatar_url: "/images/Customers/customer4.jpg" },
-  { name: "Mya Thandar", title: "Good service", comment: "Easy checkout and responsive support. Will order again.", rating: 4, avatar_url: "/images/Customers/customer5.jpg" },
-];
-
-async function seedReviews() {
-  const [[{ count }]] = await pool.query("SELECT COUNT(*) AS count FROM reviews");
-  if (count > 0) {
-    console.log("Reviews already seeded, skipping.");
-    return;
-  }
-  for (const review of DEMO_REVIEWS) {
-    await pool.query(
-      `INSERT INTO reviews (name, title, comment, rating, avatar_url) VALUES (:name, :title, :comment, :rating, :avatar_url)`,
-      review
-    );
-    console.log(`Seeded review: ${review.name}`);
-  }
-}
+// No demo testimonials here on purpose either — /api/reviews now has a real
+// customer-submission flow (purchase-gated, see TestimonialForm.tsx), and
+// the 4 fake stock-photo demo reviews this used to seed were deleted.
 
 async function seedUsers() {
   for (const demo of DEMO_USERS) {
@@ -70,10 +53,17 @@ async function seedMedicines() {
   for (const med of FULL_CATALOG) {
     const status = med.stock_qty <= med.reorder_level ? "low" : "normal";
     await pool.query(
+      // stock_qty/reorder_level/status are deliberately absent from ON
+      // DUPLICATE KEY UPDATE — those are live inventory state, not catalog
+      // metadata. Including stock_qty here once silently reset every
+      // product's real stock back to its seed default on every re-run of
+      // `npm run db:seed`, wiping out real purchase-driven decrements. Only
+      // genuinely static catalog fields get overwritten on conflict; the
+      // stock/reorder/status columns are set on first INSERT only.
       `INSERT INTO medicines (name, sku, category, image_url, description, selling_price_ks, cost_price_ks, stock_qty, reorder_level, status, is_active)
        VALUES (:name, :sku, :category, :image_url, :description, :selling_price_ks, :cost_price_ks, :stock_qty, :reorder_level, :status, 1)
        ON DUPLICATE KEY UPDATE category = VALUES(category), image_url = VALUES(image_url), description = VALUES(description),
-         selling_price_ks = VALUES(selling_price_ks), stock_qty = VALUES(stock_qty), status = VALUES(status), is_active = 1`,
+         selling_price_ks = VALUES(selling_price_ks), is_active = 1`,
       { ...med, status }
     );
   }
@@ -83,7 +73,6 @@ async function seedMedicines() {
 async function main() {
   await seedUsers();
   await seedMedicines();
-  await seedReviews();
   await pool.end();
 }
 

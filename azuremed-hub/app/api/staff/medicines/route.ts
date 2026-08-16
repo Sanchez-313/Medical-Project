@@ -7,7 +7,7 @@ import type { RowDataPacket, ResultSetHeader } from "mysql2";
  * Staff/cashier "View Product List" + "Manage Inventory" — read the full
  * catalog and adjust stock quantities only. Full product editing (name,
  * category, price, description, image, expiry, creating new products) is
- * Owner-only at /api/admin/medicines — this route never accepts those
+ * Admin-only at /api/admin/medicines — this route never accepts those
  * fields, and never selects cost_price_ks.
  */
 export async function GET() {

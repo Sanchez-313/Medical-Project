@@ -10,6 +10,8 @@ import { IoSearch } from "react-icons/io5";
 import { GoHeartFill } from "react-icons/go";
 import { FaBagShopping } from "react-icons/fa6";
 import { useCart } from "@/components/CartContext";
+import { useLanguage } from "@/components/LanguageContext";
+import LanguageToggle from "@/components/LanguageToggle";
 import LogoutButton from "@/components/LogoutButton";
 
 /**
@@ -18,8 +20,9 @@ import LogoutButton from "@/components/LogoutButton";
  * as possible. What changed, deliberately:
  *  - localStorage authUser/authToken -> useSession() (NextAuth)
  *  - react-router NavLink/useNavigate -> next/link + usePathname/useRouter
- *  - Pharmacy dropdown links point at real DB categories (English Medicine/
- *    Myanmar Medicine/Medical Equipment) matching the real seeded catalog
+ *  - Pharmacy dropdown links point at the real DB categories (Fever/Cough/
+ *    Cold, Fitness & Supplement, Sexual Wellness, Mother & Child, Traditional
+ *    Medicine, Personal Care & Equipment — see scripts/fullCatalog.js)
  *  - Cart/Wishlist icons now open the real CartPanel/WishlistPanel via
  *    CartContext, backed by /api/cart and /api/orders
  */
@@ -28,11 +31,13 @@ export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
   const { cartCount, wishlistCount, openCart, openWishlist } = useCart();
+  const { t } = useLanguage();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [showMenu, setShowMenu] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isMoreOpen, setIsMoreOpen] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
@@ -88,10 +93,14 @@ export default function Navbar() {
           </div>
         </button>
 
-        {/* Desktop Menu */}
-        <ul className="hidden min-w-0 flex-1 items-center justify-end gap-x-5 pl-8 text-[12px] font-bold uppercase tracking-[0.12em] md:flex lg:gap-x-4 lg:pl-12">
+        {/* Nav links + action icons grouped into one right-aligned cluster —
+            with only 2 top-level flex children (logo, this cluster) under
+            nav's justify-between, spacing stays tight instead of the 3-way
+            split spreading everything out across the full 1400px row. */}
+        <div className="flex items-center gap-x-6 lg:gap-x-6">
+        <ul className="hidden min-w-0 items-center gap-x-4 text-[12px] font-bold uppercase tracking-[0.12em] md:flex">
           <li>
-            <Link href="/" className={linkClass("/")}>Home</Link>
+            <Link href="/" className={`whitespace-nowrap ${linkClass("/")}`}>{t("nav.home")}</Link>
           </li>
 
           <li
@@ -99,49 +108,75 @@ export default function Navbar() {
             onMouseEnter={() => setIsDropdownOpen(true)}
             onMouseLeave={() => setIsDropdownOpen(false)}
           >
-            <button className="flex items-center gap-1 text-zinc-800 hover:text-blue-500 transition-colors py-2 text-[12px]">
-              Pharmacy <FaChevronDown className={`text-[10px] transition-transform ${isDropdownOpen ? "rotate-180" : ""}`} />
+            <button className="flex items-center gap-1 whitespace-nowrap text-zinc-800 hover:text-blue-500 transition-colors py-2 text-[12px]">
+              {t("nav.pharmacy")} <FaChevronDown className={`text-[10px] transition-transform ${isDropdownOpen ? "rotate-180" : ""}`} />
             </button>
             {isDropdownOpen && (
               <div className="absolute top-full left-0 w-64 bg-white border border-zinc-100 shadow-2xl rounded-2xl py-4 flex flex-col z-[60]">
-                <Link href="/products" className="px-6 py-3 hover:bg-blue-50 hover:text-blue-600 transition-colors">All Products</Link>
-                <Link href="/products?category=English%20Medicine" className="px-6 py-3 hover:bg-blue-50 hover:text-blue-600 transition-colors">English Medicines</Link>
-                <Link href="/products?category=Myanmar%20Medicine" className="px-6 py-3 hover:bg-blue-50 hover:text-blue-600 transition-colors">Myanmar Medicines</Link>
-                <Link href="/products?category=Medical%20Equipment" className="px-6 py-3 hover:bg-blue-50 hover:text-blue-600 transition-colors">Medical Equipment</Link>
+                <Link href="/products" className="px-6 py-3 hover:bg-blue-50 hover:text-blue-600 transition-colors">{t("nav.allProducts")}</Link>
+                <Link href="/products?category=Fever%2C%20Cough%20%26%20Cold" className="px-6 py-3 hover:bg-blue-50 hover:text-blue-600 transition-colors">{t("nav.feverCoughCold")}</Link>
+                <Link href="/products?category=Fitness%20%26%20Supplement" className="px-6 py-3 hover:bg-blue-50 hover:text-blue-600 transition-colors">{t("nav.fitnessSupplement")}</Link>
+                <Link href="/products?category=Sexual%20Wellness" className="px-6 py-3 hover:bg-blue-50 hover:text-blue-600 transition-colors">{t("nav.sexualWellness")}</Link>
+                <Link href="/products?category=Mother%20%26%20Child" className="px-6 py-3 hover:bg-blue-50 hover:text-blue-600 transition-colors">{t("nav.motherChild")}</Link>
+                <Link href="/products?category=Traditional%20Medicine" className="px-6 py-3 hover:bg-blue-50 hover:text-blue-600 transition-colors">{t("nav.traditionalMedicine")}</Link>
+                <Link href="/products?category=Personal%20Care%20%26%20Equipment" className="px-6 py-3 hover:bg-blue-50 hover:text-blue-600 transition-colors">{t("nav.personalCareEquipment")}</Link>
               </div>
             )}
           </li>
 
           <li>
-            <Link href="/orders" className={linkClass("/orders")}>Bills</Link>
+            <Link href="/detect-medicine" className={`whitespace-nowrap ${linkClass("/detect-medicine")}`}>{t("nav.detectMedicine")}</Link>
           </li>
+
+          {/* Consolidated "More" dropdown — Bills, About Us, Contact Us,
+              Reviews. Keeping these off the top-level bar (instead of each
+              as its own flat link) is what stops the header from packing
+              tight / wrapping as more pages get added later. */}
+          <li
+            className="relative"
+            onMouseEnter={() => setIsMoreOpen(true)}
+            onMouseLeave={() => setIsMoreOpen(false)}
+          >
+            <button className="flex items-center gap-1 whitespace-nowrap text-zinc-800 hover:text-blue-500 transition-colors py-2 text-[12px]">
+              {t("nav.more")} <FaChevronDown className={`text-[10px] transition-transform ${isMoreOpen ? "rotate-180" : ""}`} />
+            </button>
+            {isMoreOpen && (
+              <div className="absolute top-full right-0 w-48 bg-white border border-zinc-100 shadow-2xl rounded-2xl py-4 flex flex-col z-[60]">
+                <Link href="/orders" className="px-6 py-3 hover:bg-blue-50 hover:text-blue-600 transition-colors">{t("nav.bills")}</Link>
+                <Link href="/about" className="px-6 py-3 hover:bg-blue-50 hover:text-blue-600 transition-colors">{t("nav.aboutUs")}</Link>
+                <Link href="/contact" className="px-6 py-3 hover:bg-blue-50 hover:text-blue-600 transition-colors">{t("nav.contactUs")}</Link>
+                <Link href="/#testimonials" className="px-6 py-3 hover:bg-blue-50 hover:text-blue-600 transition-colors">{t("nav.reviews")}</Link>
+              </div>
+            )}
+          </li>
+
           <li>
-            <Link href="/detect-medicine" className={linkClass("/detect-medicine")}>Detect Medicine</Link>
+            <LanguageToggle />
           </li>
 
           {session?.user ? (
             <>
-              <li className="text-[12px] text-zinc-700 normal-case tracking-normal p-2 rounded-lg shadow-xl bg-gray-300">
-                Hi, {session.user.name}
+              <li className="whitespace-nowrap text-[12px] text-zinc-700 normal-case tracking-normal px-3 py-2 rounded-lg shadow-xl bg-gray-300">
+                {t("nav.hiUser")}, {session.user.name}
               </li>
               <li>
-                <LogoutButton className="bg-slate-700 !text-white border-0 px-6 py-2.5 rounded-full hover:bg-slate-800 hover:!text-white shadow-lg active:scale-95" />
+                <LogoutButton className="whitespace-nowrap bg-slate-700 !text-white border-0 px-4 py-2 rounded-full hover:bg-slate-800 hover:!text-white shadow-lg active:scale-95" />
               </li>
             </>
           ) : (
             <li>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <Link
                   href="/login"
-                  className="flex min-w-[112px] items-center justify-center rounded-full border-2 border-blue-600 px-6 py-2.5 text-blue-600 transition-all hover:bg-blue-50 active:scale-95"
+                  className="flex items-center justify-center whitespace-nowrap rounded-full border-2 border-blue-600 px-4 py-2 text-blue-600 transition-all hover:bg-blue-50 active:scale-95"
                 >
-                  Sign In
+                  {t("nav.signIn")}
                 </Link>
                 <Link
                   href="/register"
-                  className="flex min-w-[112px] items-center justify-center rounded-full bg-blue-600 px-6 py-2.5 text-white transition-all shadow-lg shadow-blue-100 hover:bg-blue-700 active:scale-95"
+                  className="flex items-center justify-center whitespace-nowrap rounded-full bg-blue-600 px-4 py-2 text-white transition-all shadow-lg shadow-blue-100 hover:bg-blue-700 active:scale-95"
                 >
-                  Sign Up
+                  {t("nav.signUp")}
                 </Link>
               </div>
             </li>
@@ -152,16 +187,26 @@ export default function Navbar() {
         <div className="flex items-center gap-x-3 md:gap-x-5">
           <form
             onSubmit={handleSearchSubmit}
-            className="hidden lg:flex items-center bg-slate-100 rounded-full px-4 py-1.5 focus-within:ring-2 focus-within:ring-blue-500 focus-within:bg-white transition-all"
+            className="hidden lg:flex items-center bg-slate-200 rounded-full px-4 py-1.5 focus-within:ring-2 focus-within:ring-blue-500 focus-within:bg-white transition-all"
           >
             <IoSearch className="text-slate-400" />
             <input
               type="text"
-              placeholder="Search pharmacy..."
-              className="bg-transparent border-none focus:outline-none text-sm ml-2 w-32 xl:w-48"
+              placeholder={t("nav.searchPlaceholder")}
+              className="bg-transparent border-none focus:outline-none text-sm ml-2 w-32 xl:w-38"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm("")}
+                aria-label="Clear search"
+                className="ml-1 flex items-center justify-center rounded-full p-1 text-slate-400 hover:bg-slate-300/60 hover:text-slate-600"
+              >
+                <FaXmark className="text-xs" />
+              </button>
+            )}
           </form>
 
           <button onClick={openWishlist} className="p-2 text-slate-600 hover:text-red-500 hover:bg-red-50 rounded-full transition-all relative">
@@ -182,6 +227,7 @@ export default function Navbar() {
             {showMenu ? <FaXmark /> : <FaBars />}
           </button>
         </div>
+        </div>
 
         {/* Mobile menu */}
         <div
@@ -190,10 +236,15 @@ export default function Navbar() {
           }`}
         >
           <div className="flex flex-col items-center justify-center h-full gap-y-6 px-10">
-            <Link href="/" onClick={toggleMenu} className="text-2xl font-bold text-slate-800">Home</Link>
-            <Link href="/products" onClick={toggleMenu} className="text-2xl font-bold text-slate-800">Pharmacy Shop</Link>
-            <Link href="/orders" onClick={toggleMenu} className="text-2xl font-bold text-slate-800">Bills</Link>
-            <Link href="/detect-medicine" onClick={toggleMenu} className="text-2xl font-bold text-slate-800">Detect Medicine</Link>
+            <Link href="/" onClick={toggleMenu} className="text-2xl font-bold text-slate-800">{t("nav.home")}</Link>
+            <Link href="/products" onClick={toggleMenu} className="text-2xl font-bold text-slate-800">{t("nav.pharmacy")}</Link>
+            <Link href="/orders" onClick={toggleMenu} className="text-2xl font-bold text-slate-800">{t("nav.bills")}</Link>
+            <Link href="/detect-medicine" onClick={toggleMenu} className="text-2xl font-bold text-slate-800">{t("nav.detectMedicine")}</Link>
+            <Link href="/about" onClick={toggleMenu} className="text-2xl font-bold text-slate-800">{t("nav.aboutUs")}</Link>
+            <Link href="/contact" onClick={toggleMenu} className="text-2xl font-bold text-slate-800">{t("nav.contactUs")}</Link>
+            <Link href="/#testimonials" onClick={toggleMenu} className="text-2xl font-bold text-slate-800">{t("nav.reviews")}</Link>
+
+            <LanguageToggle />
 
             <div className="w-full h-[1px] bg-slate-100 my-2" />
 
@@ -202,15 +253,25 @@ export default function Navbar() {
                 handleSearchSubmit(e);
                 toggleMenu();
               }}
-              className="w-full max-w-xs flex border-2 border-blue-500 rounded-full p-2 bg-slate-50"
+              className="w-full max-w-xs flex items-center border-2 border-blue-500 rounded-full p-2 bg-slate-50"
             >
               <input
                 type="text"
-                placeholder="Search..."
+                placeholder={t("nav.searchPlaceholder")}
                 className="flex-1 px-4 bg-transparent focus:outline-none text-base"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm("")}
+                  aria-label="Clear search"
+                  className="mr-1 flex items-center justify-center rounded-full p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-600"
+                >
+                  <FaXmark />
+                </button>
+              )}
               <button type="submit" className="bg-blue-500 text-white p-2 rounded-full">
                 <IoSearch />
               </button>
@@ -218,7 +279,7 @@ export default function Navbar() {
 
             {session?.user ? (
               <div className="flex flex-col w-full gap-4 mt-4">
-                <div className="w-full text-center py-3 text-slate-800 font-bold">Hi, {session.user.name}</div>
+                <div className="w-full text-center py-3 text-slate-800 font-bold">{t("nav.hiUser")}, {session.user.name}</div>
                 <LogoutButton className="w-full !text-white py-4 bg-slate-700 border-0 rounded-2xl font-bold shadow-xl hover:bg-slate-800 hover:!text-white" />
               </div>
             ) : (
@@ -228,14 +289,14 @@ export default function Navbar() {
                   onClick={toggleMenu}
                   className="flex w-full items-center justify-center text-center py-4 border-2 border-blue-600 text-blue-600 rounded-2xl font-bold hover:bg-indigo-400 hover:text-white hover:shadow-2xl"
                 >
-                  Sign In
+                  {t("nav.signIn")}
                 </Link>
                 <Link
                   href="/register"
                   onClick={toggleMenu}
                   className="flex w-full items-center justify-center text-center py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-xl hover:bg-amber-100 hover:text-blue-600 hover:shadow-2xl"
                 >
-                  Register
+                  {t("nav.signUp")}
                 </Link>
               </div>
             )}

@@ -18,11 +18,11 @@ export async function GET() {
              name AS actor, created_at
       FROM users)
      UNION ALL
-     (SELECT 'order' AS type, CONCAT(shipping_name, ' placed order ', order_code, ' (', total_ks, ' Ks)') AS description,
+     (SELECT 'order' AS type, CONCAT(shipping_name, ' placed order ', order_code, ' (', total_ks, ' MMK)') AS description,
              shipping_name AS actor, created_at
       FROM orders)
      UNION ALL
-     (SELECT 'sale' AS type, CONCAT(u.name, ' processed POS sale ', s.sale_code, ' (', s.total_ks, ' Ks)') AS description,
+     (SELECT 'sale' AS type, CONCAT(u.name, ' processed POS sale ', s.sale_code, ' (', s.total_ks, ' MMK)') AS description,
              u.name AS actor, s.created_at
       FROM sales s JOIN users u ON u.id = s.handled_by_user_id)
      UNION ALL

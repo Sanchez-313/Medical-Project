@@ -72,7 +72,7 @@ export default function CustomersPage() {
                   <td className="px-6 py-5 text-sm text-slate-600">{customer.email}</td>
                   <td className="px-6 py-5 text-sm font-bold text-slate-700">{customer.orderCount}</td>
                   <td className="px-6 py-5 text-sm font-bold text-slate-700">
-                    {Number(customer.totalSpentKs).toLocaleString()} Ks
+                    {Number(customer.totalSpentKs).toLocaleString()} MMK
                   </td>
                   <td className="px-6 py-5 text-xs font-semibold text-slate-400">
                     {new Date(customer.created_at).toLocaleDateString()}

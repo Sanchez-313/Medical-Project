@@ -16,7 +16,7 @@ export default function FAQSection() {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   return (
-    <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-start justify-center gap-8 px-4 py-16 md:px-0">
+    <div id="faq" className="max-w-4xl mx-auto flex flex-col md:flex-row items-start justify-center gap-8 px-4 py-16 md:px-0 scroll-mt-28">
       <div className="relative max-w-md w-full h-[430px] rounded-xl overflow-hidden hover:scale-[1.03] transition-transform hover:shadow-xl">
         <Image src="/images/Engmedicines/FAQsection.jpg" alt="Medicine delivery illustration" fill className="object-cover" />
       </div>

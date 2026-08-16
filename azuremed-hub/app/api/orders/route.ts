@@ -149,9 +149,14 @@ export async function POST(request: Request) {
     }
 
     const [[storeSettings]] = await connection.query<RowDataPacket[]>(
-      "SELECT delivery_fee_ks FROM store_settings WHERE id = 1"
+      "SELECT delivery_fee_ks, free_delivery_threshold_ks FROM store_settings WHERE id = 1"
     );
-    const deliveryFeeKs = storeSettings?.delivery_fee_ks ?? 0;
+    const freeDeliveryThresholdKs = storeSettings?.free_delivery_threshold_ks ?? 0;
+    // Every order still ships — there's no in-store pickup in this app —
+    // reaching the threshold only waives the fee, same rule as the checkout
+    // page preview in app/(storefront)/checkout/page.tsx.
+    const deliveryFeeKs =
+      freeDeliveryThresholdKs > 0 && subtotalKs >= freeDeliveryThresholdKs ? 0 : storeSettings?.delivery_fee_ks ?? 0;
 
     const taxKs = Math.round(subtotalKs * TAX_RATE);
     const totalKs = subtotalKs + taxKs + deliveryFeeKs - discountKs;
