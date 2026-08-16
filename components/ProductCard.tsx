@@ -14,13 +14,17 @@ interface Product {
   image_url: string | null;
   selling_price_ks: number;
   stock_qty: number;
+  /** Held by other shoppers' unexpired cart reservations — see lib/cartReservation.ts.
+   *  Optional/defaults to 0 for any caller not yet passing it through. */
+  reserved_qty?: number;
 }
 
 /** Faithful port of Medical_Product/src/components/Cards/Cards.jsx (light theme, no dark mode). */
 export default function ProductCard({ product }: { product: Product }) {
   const { toggleFavorite, isFavorite, addToCart } = useCart();
   const { t } = useLanguage();
-  const isOutOfStock = product.stock_qty <= 0;
+  const availableQty = product.stock_qty - (product.reserved_qty ?? 0);
+  const isOutOfStock = availableQty <= 0;
   const favorite = isFavorite(product.id);
 
   const wishlistPayload = {
@@ -79,7 +83,7 @@ export default function ProductCard({ product }: { product: Product }) {
           }`}
         >
           <span className={`h-1.5 w-1.5 rounded-full ${isOutOfStock ? "bg-red-500" : "bg-emerald-500"}`} />
-          {isOutOfStock ? t("product.outOfStock") : `${product.stock_qty} ${t("product.available")}`}
+          {isOutOfStock ? t("product.outOfStock") : `${availableQty} ${t("product.available")}`}
         </p>
 
         <button

@@ -43,7 +43,7 @@ export default async function ProductsPage({
   const orderBy = SORT_CLAUSES[sort] ?? "id ASC";
 
   const [products] = await pool.query<RowDataPacket[]>(
-    `SELECT id, name, category, description, image_url, selling_price_ks, stock_qty, status
+    `SELECT id, name, category, description, image_url, selling_price_ks, stock_qty, reserved_qty, status
      FROM medicines
      WHERE is_active = 1
        AND (:category IS NULL OR category = :category)
@@ -92,6 +92,7 @@ export default async function ProductsPage({
                   image_url: product.image_url,
                   selling_price_ks: product.selling_price_ks,
                   stock_qty: product.stock_qty,
+                  reserved_qty: product.reserved_qty,
                 }}
               />
             ))}

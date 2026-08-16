@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import ProductCard from "@/components/ProductCard";
 import Heading from "@/components/Heading";
+import { useCart } from "@/components/CartContext";
 
 interface Product {
   id: number;
@@ -12,6 +13,7 @@ interface Product {
   image_url: string | null;
   selling_price_ks: number;
   stock_qty: number;
+  reserved_qty: number;
 }
 
 const CATEGORIES = [
@@ -28,12 +30,19 @@ const CATEGORIES = [
 export default function HomeProductsSection() {
   const [activeTab, setActiveTab] = useState("All");
   const [products, setProducts] = useState<Product[]>([]);
+  // This is a client component fetching its own data (unlike the /products
+  // page, which is a Server Component router.refresh() can re-run) — its
+  // stock/reserved_qty numbers otherwise only load once on mount and never
+  // reflect a cart mutation until a full page reload. Re-fetching whenever
+  // cartCount changes keeps this grid's "available" counts in sync with
+  // whatever was just reserved/released.
+  const { cartCount } = useCart();
 
   useEffect(() => {
     fetch("/api/products")
       .then((r) => r.json())
       .then((result) => result.success && setProducts(result.data));
-  }, []);
+  }, [cartCount]);
 
   const filtered = activeTab === "All" ? products : products.filter((p) => p.category === activeTab);
   const visible = filtered.slice(0, 8);

@@ -38,6 +38,14 @@ CREATE TABLE IF NOT EXISTS medicines (
   selling_price_ks INT NOT NULL,
   cost_price_ks INT NULL,
   stock_qty INT NOT NULL DEFAULT 0,
+  -- Sum of qty currently held by unexpired cart_items reservations (see
+  -- cart_items.reserved_until below) — NOT physically missing stock, just
+  -- temporarily spoken for. "Available to sell" everywhere (storefront
+  -- add-to-cart, checkout, POS/portal sales) is stock_qty - reserved_qty;
+  -- stock_qty itself stays the true on-shelf count until an order is
+  -- actually placed. See app/api/cart/items/route.ts for the reserve/release
+  -- lifecycle.
+  reserved_qty INT NOT NULL DEFAULT 0,
   reorder_level INT NOT NULL DEFAULT 20,
   expiry_date DATE NULL,
   status ENUM('normal', 'low', 'expired') NOT NULL DEFAULT 'normal',
@@ -111,12 +119,21 @@ CREATE TABLE IF NOT EXISTS cart_items (
   user_id INT NOT NULL,
   medicine_id INT NOT NULL,
   qty INT NOT NULL DEFAULT 1,
+  -- Stock reservation hold expiry — refreshed to NOW() + 15 minutes on every
+  -- add/qty-update. Past this timestamp the reservation is stale: the
+  -- medicines.reserved_qty it accounts for gets released and this row
+  -- deleted, lazily, the next time anything checks that medicine's
+  -- availability (see releaseExpiredReservations() in lib/cartReservation.ts)
+  -- — not on a fixed schedule, so correctness doesn't depend on a cron
+  -- actually firing.
+  reserved_until DATETIME NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT uq_cart_user_medicine UNIQUE (user_id, medicine_id),
   CONSTRAINT fk_cart_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   CONSTRAINT fk_cart_medicine FOREIGN KEY (medicine_id) REFERENCES medicines(id) ON DELETE CASCADE,
-  INDEX idx_cart_user (user_id)
+  INDEX idx_cart_user (user_id),
+  INDEX idx_cart_reserved_until (reserved_until)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ---------------------------------------------------------------------------

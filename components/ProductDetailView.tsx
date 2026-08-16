@@ -22,6 +22,7 @@ interface Product {
   image_url: string | null;
   selling_price_ks: number;
   stock_qty: number;
+  reserved_qty?: number;
 }
 
 export default function ProductDetailView({
@@ -36,6 +37,7 @@ export default function ProductDetailView({
   averageRating: number;
 }) {
   const { t } = useLanguage();
+  const availableQty = product.stock_qty - (product.reserved_qty ?? 0);
 
   return (
     <div className="pt-32 pb-20">
@@ -74,7 +76,7 @@ export default function ProductDetailView({
           </p>
 
           <p className="mt-2 text-sm font-bold uppercase tracking-wider text-emerald-600">
-            {product.stock_qty > 0 ? `${product.stock_qty} ${t("product.available")}` : t("product.outOfStock")}
+            {availableQty > 0 ? `${availableQty} ${t("product.available")}` : t("product.outOfStock")}
           </p>
 
           {product.description && <p className="mt-5 text-zinc-600 leading-relaxed">{product.description}</p>}
@@ -88,7 +90,7 @@ export default function ProductDetailView({
                 image_url: product.image_url,
                 price: product.selling_price_ks,
               }}
-              disabled={product.stock_qty <= 0}
+              disabled={availableQty <= 0}
             />
           </div>
         </div>

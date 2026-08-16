@@ -194,6 +194,22 @@ export async function POST(request: Request) {
       );
     }
 
+    // Release whatever this cart had reserved before deleting it — these
+    // holds are converting into a real stock_qty decrement above, not
+    // lapsing, but reserved_qty still needs to come back down or the stock
+    // stays phantom-held forever. Read the server's own cart rows here
+    // rather than trust the client-submitted `items` qtys, since those two
+    // should match but only one of them is authoritative.
+    const [cartRows] = await connection.query<RowDataPacket[]>(
+      "SELECT medicine_id, qty FROM cart_items WHERE user_id = :userId FOR UPDATE",
+      { userId }
+    );
+    for (const row of cartRows) {
+      await connection.query("UPDATE medicines SET reserved_qty = GREATEST(reserved_qty - :qty, 0) WHERE id = :id", {
+        qty: row.qty,
+        id: row.medicine_id,
+      });
+    }
     await connection.query("DELETE FROM cart_items WHERE user_id = :userId", { userId });
 
     await connection.commit();

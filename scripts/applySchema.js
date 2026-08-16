@@ -132,6 +132,18 @@ async function main() {
   await connection.query(`DROP TABLE IF EXISTS staff_todos`);
   await connection.query(`DROP TABLE IF EXISTS staff_attendance`);
 
+  // Cart stock reservations (hold stock for 15 min after add-to-cart without
+  // touching the real stock_qty count) — see the comments on these columns
+  // in azuremed_schema.sql and lib/cartReservation.ts.
+  await connection.query(`
+    ALTER TABLE medicines ADD COLUMN IF NOT EXISTS reserved_qty INT NOT NULL DEFAULT 0 AFTER stock_qty
+  `);
+  await connection.query(`
+    ALTER TABLE cart_items
+      ADD COLUMN IF NOT EXISTS reserved_until DATETIME NULL AFTER qty,
+      ADD INDEX IF NOT EXISTS idx_cart_reserved_until (reserved_until)
+  `);
+
   await connection.end();
   console.log("Schema applied.");
 }

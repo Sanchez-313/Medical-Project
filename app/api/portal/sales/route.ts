@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import pool from "@/config/db";
 import { requireRole, ROLE_GROUPS } from "@/lib/rbac";
+import { releaseExpiredReservations } from "@/lib/cartReservation";
 import type { RowDataPacket, ResultSetHeader } from "mysql2";
 
 const TAX_RATE = 0.05;
@@ -49,13 +50,19 @@ export async function POST(request: Request) {
     const lineItems: Array<{ medicineId: number; qty: number; unitPriceKs: number; totalPriceKs: number }> = [];
 
     for (const line of items) {
+      // Same reasoning as /api/staff/sales: release lapsed holds, then check
+      // against stock_qty - reserved_qty so this doesn't sell a unit a
+      // customer currently has reserved online.
+      await releaseExpiredReservations(connection, { medicineId: line.medicineId });
+
       const [rows] = await connection.query<RowDataPacket[]>(
-        "SELECT id, selling_price_ks, stock_qty FROM medicines WHERE id = :id AND is_active = 1 FOR UPDATE",
+        "SELECT id, selling_price_ks, stock_qty, reserved_qty FROM medicines WHERE id = :id AND is_active = 1 FOR UPDATE",
         { id: line.medicineId }
       );
       const medicine = rows[0];
       if (!medicine) throw new Error(`Medicine ${line.medicineId} not found or inactive`);
-      if (medicine.stock_qty < line.qty) throw new Error(`Insufficient stock for medicine ${line.medicineId}`);
+      const available = medicine.stock_qty - medicine.reserved_qty;
+      if (available < line.qty) throw new Error(`Insufficient stock for medicine ${line.medicineId}`);
 
       const lineTotal = medicine.selling_price_ks * line.qty;
       subtotalKs += lineTotal;
