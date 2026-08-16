@@ -47,4 +47,43 @@ this app over HTTP, not to MySQL directly:
   asker's chat id/username kept on the row (`customer_queries.telegram_*`).
 
 Set `BOT_API_SECRET` in both this app's `.env` and the bot's `.env` (same
-value) for the support features to work — see `.env.example`.
+value) for the support features to work — see `.env.example`. Note: it must
+be in the real `.env`, not just `.env.example` — Next.js never reads the
+latter at runtime.
+
+### Answering tickets straight from Telegram
+
+An admin/staff account can link their personal Telegram (`users.telegram_chat_id`)
+to answer `customer_queries` from the medicalbot chat, instead of opening
+`/staff/queries`. Tap-then-type — the same interaction pattern the bot
+already uses for search/ask-a-question, not a reply-to-message gesture (an
+earlier version required replying to a specific alert message, which was
+confusing to actually use and got replaced):
+
+1. New question comes in via `POST /api/support/telegram` → the site pushes
+   a "🆕 Ticket #N" alert, with a "✍️ Reply" inline button carrying the
+   ticket id, to whichever linked admin/staff account it finds
+   (`lib/telegramNotify.ts`, using `BOT_TOKEN` — same token as the bot's own
+   `.env`).
+2. Staff taps that button. The bot asks them to type an answer, then posts
+   it to `POST /api/support/telegram/answer` along with the ticket id and
+   the replier's Telegram id.
+3. That route verifies the replier's Telegram id actually belongs to an
+   active admin/staff account (`users.telegram_chat_id` + role check).
+   `BOT_API_SECRET` alone only proves the request came from *a* copy of the
+   bot, not that the human typing was staff — this is the real authorization
+   boundary (the bot can't hide the "✍️ Reply" button from a non-staff
+   viewer, so this check has to happen server-side, not client-side).
+4. On success, the answer is saved (`responded_by` resolves to that real
+   staff account, so it's attributed the same way a `/staff/queries` answer
+   would be) and pushed straight back to the customer's Telegram chat.
+
+To link an account, set `users.telegram_chat_id` directly (there's no UI for
+this yet — get the numeric id from something like `@userinfobot`). Only one
+linked account is notified per ticket today — if a second admin/staff
+account links their Telegram, only one of them gets the alert.
+
+`lib/telegramNotify.ts` sends plain text, deliberately with no `parse_mode` —
+every message here embeds unsanitized user-typed content (a customer's
+question, a staff reply), and Telegram's legacy Markdown parser hard-fails
+the whole send on a single stray `_`/`*`/`` ` ``/`[` in that text.

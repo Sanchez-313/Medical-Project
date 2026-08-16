@@ -144,6 +144,31 @@ async function main() {
       ADD INDEX IF NOT EXISTS idx_cart_reserved_until (reserved_until)
   `);
 
+  // Answer-tickets-from-Telegram feature — an admin/staff account links
+  // their Telegram (users.telegram_chat_id) to reply to customer questions
+  // straight from the medicalbot chat instead of /staff/queries. See
+  // app/api/support/telegram/answer/route.ts and lib/telegramNotify.ts.
+  await connection.query(`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_chat_id BIGINT NULL AFTER is_active
+  `);
+  const [[{ hasUserTelegramConstraint }]] = await connection.query(`
+    SELECT COUNT(*) AS hasUserTelegramConstraint
+    FROM information_schema.TABLE_CONSTRAINTS
+    WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND CONSTRAINT_NAME = 'uq_users_telegram_chat_id'
+  `);
+  if (!hasUserTelegramConstraint) {
+    await connection.query(`ALTER TABLE users ADD CONSTRAINT uq_users_telegram_chat_id UNIQUE (telegram_chat_id)`);
+  }
+  // staff_notify_message_id: dropped almost immediately after being added —
+  // the original design required staff to reply to a specific Telegram
+  // message to answer a ticket, which turned out to be confusing to
+  // actually use. Replaced with a "✍️ Reply" button carrying the ticket id
+  // directly (see app/api/support/telegram/route.ts), which needs no
+  // message-id bookkeeping at all.
+  await connection.query(`
+    ALTER TABLE customer_queries DROP COLUMN IF EXISTS staff_notify_message_id
+  `);
+
   await connection.end();
   console.log("Schema applied.");
 }

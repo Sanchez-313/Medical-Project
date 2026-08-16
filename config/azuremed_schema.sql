@@ -18,8 +18,15 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash VARCHAR(255) NOT NULL,
   role ENUM('admin', 'staff', 'agent', 'user') NOT NULL DEFAULT 'user',
   is_active TINYINT(1) NOT NULL DEFAULT 1,
+  -- Set only for an admin/staff account that has linked their personal
+  -- Telegram to answer customer_queries straight from the medicalbot chat
+  -- (see app/api/support/telegram/answer/route.ts) instead of /staff/queries.
+  -- Doubles as the authorization check for that route: a reply is only
+  -- accepted if it comes from a chat_id found here with role admin/staff.
+  telegram_chat_id BIGINT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT uq_users_telegram_chat_id UNIQUE (telegram_chat_id),
   INDEX idx_users_role (role)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
