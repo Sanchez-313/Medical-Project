@@ -1,9 +1,30 @@
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import { NextResponse } from "next/server";
 import pool from "@/config/db";
 import type { RowDataPacket } from "mysql2";
 
 const SERVICE_EMAIL = "telegram-bot@system.local";
+
+/**
+ * Shared gate for every bot-facing route under app/api/support/telegram/**.
+ * None of these have a browser session to check (there's no requireRole()
+ * call), so the medicalbot process authenticates with a secret shared only
+ * between its own .env and this server's .env — see BOT_API_SECRET in both.
+ * These routes are never covered by middleware.ts (only /api/admin,
+ * /api/staff, /api/portal are), so this check is the only gate: call it
+ * first, before touching the request body or the database.
+ */
+export function rejectUnlessBot(request: Request): NextResponse | null {
+  const secret = process.env.BOT_API_SECRET;
+  if (!secret) {
+    return NextResponse.json({ success: false, message: "Bot integration not configured" }, { status: 503 });
+  }
+  if (request.headers.get("x-bot-secret") !== secret) {
+    return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+  }
+  return null;
+}
 
 /**
  * `customer_queries.user_id` is a NOT NULL FK into `users` — but a Telegram

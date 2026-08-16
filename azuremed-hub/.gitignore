@@ -4,3 +4,8 @@ node_modules
 .env.local
 *.tsbuildinfo
 public/uploads
+
+# bot/ (medicalbot Telegram bot — see bot/README.md)
+bot/.env
+bot/__pycache__/
+bot/.bot.lock

@@ -6,12 +6,32 @@ import { useCart } from "@/components/CartContext";
 import MedicineDetectionCard, { type DetectionResult } from "@/components/MedicineDetectionCard";
 
 type Status = "idle" | "analyzing" | "done" | "error";
+type ScanStatus = "loading" | "scanning" | "locked" | "unavailable" | null;
 
 const STEPS = [
-  "Open the camera or upload a clear photo of the medicine pack.",
-  "Capture the image and let the AI rank the best matching labels.",
+  "Open the camera — live auto-detect starts scanning right away.",
+  "Hold the pack steady; it captures automatically once it locks onto a confident match.",
   "Review the matched storefront product, confidence, and stock status.",
 ];
+
+// Deliberately stricter than HIGH_CONFIDENCE_THRESHOLD (0.92) in
+// app/api/ai/detect/route.ts — this is only the bar for *triggering* an
+// auto-capture client-side, so setting it higher just means fewer/more
+// certain auto-captures, not a change to what counts as a match server-side.
+// Whatever the server computes on the actually-captured (re-encoded JPEG)
+// frame is still the canonical result shown in MedicineDetectionCard, even
+// if it comes out a hair different from what tripped the trigger here.
+const AUTO_CAPTURE_CONFIDENCE = 0.95;
+// How many consecutive scan ticks must land on the same label above
+// AUTO_CAPTURE_CONFIDENCE before firing — filters out a single lucky/noisy
+// frame without adding much perceptible delay (2 ticks * SCAN_INTERVAL_MS).
+const REQUIRED_CONSECUTIVE_HITS = 2;
+const SCAN_INTERVAL_MS = 400;
+
+interface LiveGuess {
+  label: string;
+  confidence: number;
+}
 
 export default function DetectMedicinePage() {
   const { addToCart } = useCart();
@@ -29,6 +49,25 @@ export default function DetectMedicinePage() {
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Live auto-detect scan loop — separate from the canonical server-side
+  // model in lib/teachableMachine.ts. This one runs client-side (browser
+  // tfjs, WebGL-accelerated) purely to decide *when* to auto-capture; the
+  // actual result always still comes from POSTing the captured frame to
+  // /api/ai/detect, same as a manual capture always has.
+  const [scanStatus, setScanStatus] = useState<ScanStatus>(null);
+  const [liveGuess, setLiveGuess] = useState<LiveGuess | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tfRef = useRef<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const liveModelRef = useRef<any>(null);
+  const liveMetadataRef = useRef<{ labels: string[]; imageSize: number } | null>(null);
+  const scanIntervalRef = useRef<number | null>(null);
+  const consecutiveRef = useRef<{ label: string | null; count: number }>({ label: null, count: 0 });
+  // Guards against the scan loop firing a second auto-capture while the
+  // first one is already mid-flight (stopCamera()'s cleanup lags one tick
+  // behind the interval potentially already having queued another run).
+  const capturingRef = useRef(false);
+
   useEffect(() => {
     fetch("/api/auth/session")
       .then((r) => r.json())
@@ -38,8 +77,115 @@ export default function DetectMedicinePage() {
       });
     return () => {
       streamRef.current?.getTracks().forEach((track) => track.stop());
+      if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
+      liveModelRef.current?.dispose?.();
     };
   }, []);
+
+  async function loadLiveModel(): Promise<boolean> {
+    if (liveModelRef.current) return true;
+    try {
+      const tf = await import("@tensorflow/tfjs");
+      const [model, metadata] = await Promise.all([
+        tf.loadLayersModel("/api/ai/model/model.json"),
+        fetch("/api/ai/model/metadata.json").then((r) => r.json()),
+      ]);
+      tfRef.current = tf;
+      liveModelRef.current = model;
+      liveMetadataRef.current = metadata;
+      return true;
+    } catch {
+      // Live scanning is a convenience layer on top of manual capture, not
+      // a requirement — if the browser can't load/run the model (old
+      // device, no WebGL, blocked script, etc.) fall back silently to
+      // manual-only rather than blocking the whole camera experience.
+      return false;
+    }
+  }
+
+  function runScanTick() {
+    const tf = tfRef.current;
+    const model = liveModelRef.current;
+    const metadata = liveMetadataRef.current;
+    const video = videoRef.current;
+    // readyState < 2 (HAVE_CURRENT_DATA) means no frame has decoded yet —
+    // fromPixels on an empty video element throws.
+    if (!tf || !model || !metadata || !video || video.readyState < 2 || capturingRef.current) return;
+
+    const imageSize = metadata.imageSize || 224;
+    let predictions: LiveGuess[] = [];
+
+    tf.tidy(() => {
+      const frame = tf.browser.fromPixels(video);
+      const resized = tf.image.resizeBilinear(frame, [imageSize, imageSize]);
+      const normalized = resized.toFloat().div(127.5).sub(1);
+      const batched = normalized.expandDims(0);
+      const output = model.predict(batched);
+      const data = output.dataSync() as Float32Array;
+      predictions = Array.from(data).map((confidence, index) => ({
+        label: metadata.labels[index] ?? `Class ${index + 1}`,
+        confidence,
+      }));
+    });
+
+    predictions.sort((a, b) => b.confidence - a.confidence);
+    const top = predictions[0];
+    if (!top) return;
+
+    setLiveGuess(top);
+
+    if (top.confidence >= AUTO_CAPTURE_CONFIDENCE) {
+      consecutiveRef.current =
+        consecutiveRef.current.label === top.label
+          ? { label: top.label, count: consecutiveRef.current.count + 1 }
+          : { label: top.label, count: 1 };
+    } else {
+      consecutiveRef.current = { label: null, count: 0 };
+    }
+
+    if (consecutiveRef.current.count >= REQUIRED_CONSECUTIVE_HITS) {
+      capturingRef.current = true;
+      setScanStatus("locked");
+      captureFromCamera();
+    }
+  }
+
+  // Starts/stops the scan loop in lockstep with the camera itself — no
+  // separate toggle, per the "on by default" behavior.
+  useEffect(() => {
+    if (!cameraActive) {
+      if (scanIntervalRef.current) {
+        clearInterval(scanIntervalRef.current);
+        scanIntervalRef.current = null;
+      }
+      return;
+    }
+
+    let cancelled = false;
+    capturingRef.current = false;
+    consecutiveRef.current = { label: null, count: 0 };
+    setLiveGuess(null);
+    setScanStatus("loading");
+
+    loadLiveModel().then((ok) => {
+      if (cancelled) return;
+      if (!ok) {
+        setScanStatus("unavailable");
+        return;
+      }
+      setScanStatus("scanning");
+      scanIntervalRef.current = window.setInterval(runScanTick, SCAN_INTERVAL_MS);
+    });
+
+    return () => {
+      cancelled = true;
+      if (scanIntervalRef.current) {
+        clearInterval(scanIntervalRef.current);
+        scanIntervalRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cameraActive]);
 
   async function startCamera() {
     try {
@@ -72,6 +218,10 @@ export default function DetectMedicinePage() {
 
   function captureFromCamera() {
     if (!videoRef.current) return;
+    // Also set here (not just in the auto-capture branch of runScanTick) so
+    // a manual click on "Capture + Detect" can't race with the scan loop
+    // firing its own auto-capture in the same tick.
+    capturingRef.current = true;
     const canvas = document.createElement("canvas");
     canvas.width = videoRef.current.videoWidth;
     canvas.height = videoRef.current.videoHeight;
@@ -140,6 +290,8 @@ export default function DetectMedicinePage() {
     setResult(null);
     setStatus("idle");
     setErrorMessage(null);
+    setScanStatus(null);
+    setLiveGuess(null);
   }
 
   if (authChecked && !isAuthed) {
@@ -163,7 +315,8 @@ export default function DetectMedicinePage() {
     <div className="mx-auto max-w-5xl px-6 pt-32 pb-12 sm:px-10">
       <h1 className="text-3xl font-extrabold text-slate-800 dark:text-slate-100">Detect Medicine</h1>
       <p className="mt-2 text-slate-500">
-        Upload or capture a photo of a medicine pack, strip, or bottle for live AI detection.
+        Start the camera and hold a medicine pack, strip, or bottle steady — it captures and detects
+        automatically once it's confident. You can still capture manually or upload a photo instead.
       </p>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
@@ -202,6 +355,39 @@ export default function DetectMedicinePage() {
                 <div className="flex items-center gap-3 text-white">
                   <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
                   Analyzing image...
+                </div>
+              </div>
+            )}
+
+            {/* Live auto-detect status — only while the camera's actually up
+                and we're not already mid-way through a triggered capture. */}
+            {cameraActive && status !== "analyzing" && scanStatus && (
+              <div className="absolute inset-x-0 top-0 flex justify-center p-3">
+                <div
+                  className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold shadow-lg backdrop-blur-sm ${
+                    scanStatus === "locked"
+                      ? "bg-emerald-500/90 text-white"
+                      : liveGuess && liveGuess.confidence >= AUTO_CAPTURE_CONFIDENCE * 0.75
+                      ? "bg-amber-500/90 text-white"
+                      : "bg-slate-900/80 text-slate-100"
+                  }`}
+                >
+                  {scanStatus === "loading" && (
+                    <>
+                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/60 border-t-white" />
+                      Loading auto-detect…
+                    </>
+                  )}
+                  {scanStatus === "scanning" && (
+                    <>
+                      <span className="h-2 w-2 animate-pulse rounded-full bg-white" />
+                      {liveGuess
+                        ? `Scanning: ${liveGuess.label} · ${Math.round(liveGuess.confidence * 100)}%`
+                        : "Scanning for a match…"}
+                    </>
+                  )}
+                  {scanStatus === "locked" && <>Locked — capturing…</>}
+                  {scanStatus === "unavailable" && "Auto-detect unavailable — use Capture + Detect"}
                 </div>
               </div>
             )}
