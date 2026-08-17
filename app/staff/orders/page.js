@@ -189,20 +189,20 @@ export default function StaffOrdersPage() {
 
       {reviewOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-          <div className="w-full max-w-lg rounded-[2rem] bg-white p-8 shadow-2xl">
+          <div className="max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-[2rem] bg-white p-6 shadow-2xl">
             <h3 className="text-xl font-black text-slate-900">Review KBZ Pay Payment</h3>
             <p className="mt-1 text-sm text-slate-500">
               Order <span className="font-bold text-slate-700">{reviewOrder.order_code}</span> — {Number(reviewOrder.total_ks).toLocaleString()} MMK
             </p>
 
-            <div className="mt-6 overflow-hidden rounded-2xl border border-slate-100 bg-slate-50">
+            <div className="mt-5 flex justify-center overflow-hidden rounded-2xl border border-slate-100 bg-slate-50 p-3">
               {reviewOrder.payment_proof_url ? (
                 <Image
                   src={reviewOrder.payment_proof_url}
                   alt="Payment screenshot"
                   width={600}
                   height={800}
-                  className="h-auto w-full object-contain"
+                  className="max-h-[48vh] w-auto max-w-full object-contain"
                   unoptimized
                 />
               ) : (
