@@ -34,7 +34,7 @@ export async function GET() {
              o.payment_proof_url, o.payment_status,
              o.shipping_phone, o.shipping_city, o.shipping_address
       FROM orders o)
-     ORDER BY created_at DESC
+     ORDER BY created_at DESC, id DESC
      LIMIT 100`
   );
 

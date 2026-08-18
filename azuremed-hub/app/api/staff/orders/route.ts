@@ -19,7 +19,7 @@ export async function GET() {
             subtotal_ks, delivery_fee_ks, discount_ks, total_ks, status,
             payment_proof_url, payment_status, created_at
      FROM orders
-     ORDER BY created_at DESC
+     ORDER BY created_at DESC, id DESC
      LIMIT 100`
   );
 

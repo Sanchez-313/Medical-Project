@@ -36,7 +36,7 @@ export async function GET() {
     `SELECT id, order_code, payment_method, shipping_name, shipping_phone, shipping_city,
             subtotal_ks, tax_ks, delivery_fee_ks, discount_ks, promo_code, total_ks,
             status, payment_proof_url, payment_status, created_at
-     FROM orders WHERE user_id = :userId ORDER BY created_at DESC`,
+     FROM orders WHERE user_id = :userId ORDER BY created_at DESC, id DESC`,
     { userId }
   );
 
@@ -163,8 +163,8 @@ export async function POST(request: Request) {
     const orderCode = `ORD-${Date.now()}`;
 
     const [orderResult] = await connection.query<ResultSetHeader>(
-      `INSERT INTO orders (order_code, user_id, payment_method, shipping_name, shipping_email, shipping_phone, shipping_city, shipping_address, subtotal_ks, tax_ks, delivery_fee_ks, discount_ks, promo_code, total_ks, status, payment_proof_url, payment_status)
-       VALUES (:order_code, :user_id, :payment_method, :name, :email, :phone, :city, :address, :subtotal, :tax, :delivery_fee, :discount, :promo_code, :total, 'pending', :payment_proof_url, :payment_status)`,
+      `INSERT INTO orders (order_code, user_id, payment_method, shipping_name, shipping_email, shipping_phone, shipping_city, shipping_address, subtotal_ks, tax_ks, delivery_fee_ks, discount_ks, promo_code, total_ks, status, payment_proof_url, payment_status, created_at)
+       VALUES (:order_code, :user_id, :payment_method, :name, :email, :phone, :city, :address, :subtotal, :tax, :delivery_fee, :discount, :promo_code, :total, 'pending', :payment_proof_url, :payment_status, DATE_ADD(UTC_TIMESTAMP(), INTERVAL 390 MINUTE))`,
       {
         order_code: orderCode,
         user_id: userId,
