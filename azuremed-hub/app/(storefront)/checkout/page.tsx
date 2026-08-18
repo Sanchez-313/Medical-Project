@@ -6,6 +6,7 @@ import Image from "next/image";
 import { Truck, CreditCard, Lock, CheckCircle, User, Phone, Mail, Upload, Tag } from "lucide-react";
 import { useCart } from "@/components/CartContext";
 import { useLanguage } from "@/components/LanguageContext";
+import ProductImage from "@/components/ProductImage";
 
 /** Ported from Medical_Product/src/components/CheckoutPage/CheckoutPage.jsx. */
 export default function CheckoutPage() {
@@ -248,7 +249,7 @@ export default function CheckoutPage() {
                   cartItems.map((item) => (
                     <div key={item.id} className="flex items-center gap-5 group">
                       <div className="relative size-16 rounded-2xl bg-slate-50 overflow-hidden shrink-0">
-                        {item.image_url && <Image src={item.image_url} fill sizes="64px" className="object-contain" alt={item.name} />}
+                        <ProductImage imageUrl={item.image_url} fill sizes="64px" className="object-contain" alt={item.name} />
                       </div>
                       <div className="flex-1">
                         <p className="font-black text-slate-800">{item.name}</p>

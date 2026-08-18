@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
+import ProductImage from "@/components/ProductImage";
 import { useSearchParams } from "next/navigation";
 import { Search, Boxes, X as XIcon } from "lucide-react";
 import Pagination from "@/components/Pagination";
@@ -160,9 +160,7 @@ export default function StaffProductsPage() {
                   <td className="px-8 py-5">
                     <div className="flex items-center gap-3">
                       <div className="relative size-10 shrink-0 overflow-hidden rounded-xl bg-slate-50">
-                        {product.image_url && (
-                          <Image src={product.image_url} alt={product.name} fill className="object-contain" />
-                        )}
+                        <ProductImage imageUrl={product.image_url} alt={product.name} fill className="object-contain" />
                       </div>
                       <div>
                         <p className="text-sm font-black text-slate-800">{product.name}</p>

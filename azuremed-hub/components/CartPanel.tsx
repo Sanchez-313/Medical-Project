@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { FaMinus, FaPlus, FaTrash } from "react-icons/fa";
 import { useCart } from "@/components/CartContext";
 import { useLanguage } from "@/components/LanguageContext";
+import ProductImage from "@/components/ProductImage";
 
 /**
  * "Reserved for MM:SS" countdown for one cart line — the item's hold on
@@ -76,7 +76,7 @@ export default function CartPanel() {
           cartItems.map((item) => (
             <div key={item.id} className="flex items-center gap-3 bg-white px-5 py-3 border-y border-zinc-200">
               <div className="relative w-16 h-16 shrink-0">
-                {item.image_url && <Image src={item.image_url} fill sizes="64px" className="object-contain" alt={item.name} />}
+                <ProductImage imageUrl={item.image_url} fill sizes="64px" className="object-contain" alt={item.name} />
               </div>
               <div className="flex-1">
                 <div className="flex justify-between items-center">

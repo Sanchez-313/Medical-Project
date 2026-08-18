@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Boxes, ShoppingCart, ClipboardList, MessageCircle, AlertTriangle } from "lucide-react";
 import LogoutButton from "@/components/LogoutButton";
+import useOrderAttentionCount from "@/components/useOrderAttentionCount";
 
 /**
  * New — the original Admin-Dashboard app had no separate staff role, so
@@ -28,6 +29,7 @@ const NAV_GROUPS = [
 
 export default function StaffSidebar({ userName, lowStockCount = 0 }) {
   const pathname = usePathname();
+  const pendingOrderCount = useOrderAttentionCount("/api/staff/orders");
 
   return (
     <aside className="fixed left-0 top-0 flex h-full w-64 flex-col border-r border-slate-200 bg-white">
@@ -51,15 +53,25 @@ export default function StaffSidebar({ userName, lowStockCount = 0 }) {
               {group.items.map((item) => {
                 const isActive = pathname === item.path;
                 const Icon = item.icon;
+                const isOrderAlert = item.path === "/staff/orders" && pendingOrderCount > 0;
                 return (
                   <Link
                     key={item.path}
                     href={item.path}
                     className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold transition-all ${
-                      isActive ? "bg-blue-600 text-white shadow-md shadow-blue-200" : "text-slate-500 hover:bg-slate-50"
+                      isOrderAlert
+                        ? "bg-red-600 text-white shadow-md shadow-red-200 hover:bg-red-700"
+                        : isActive
+                        ? "bg-blue-600 text-white shadow-md shadow-blue-200"
+                        : "text-slate-500 hover:bg-slate-50"
                     }`}
                   >
                     <Icon size={20} /> {item.name}
+                    {isOrderAlert && (
+                      <span className="ml-auto min-w-6 animate-pulse rounded-full bg-white px-1.5 py-0.5 text-center text-xs font-black text-red-600">
+                        {pendingOrderCount > 99 ? "99+" : pendingOrderCount}
+                      </span>
+                    )}
                   </Link>
                 );
               })}

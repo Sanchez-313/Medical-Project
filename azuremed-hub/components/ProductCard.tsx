@@ -1,11 +1,11 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { FaHeart } from "react-icons/fa6";
 import { FaShoppingCart } from "react-icons/fa";
 import { useCart } from "@/components/CartContext";
 import { useLanguage } from "@/components/LanguageContext";
+import ProductImage from "@/components/ProductImage";
 
 interface Product {
   id: number;
@@ -57,15 +57,13 @@ export default function ProductCard({ product }: { product: Product }) {
       </button>
 
       <Link href={`/products/${product.id}`} className="relative z-10 block w-full h-40 mt-10 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50">
-        {product.image_url && (
-          <Image
-            src={product.image_url}
-            alt={product.name}
-            fill
-            sizes="(max-width: 768px) 100vw, 25vw"
-            className="object-contain p-3 transition-transform duration-300 group-hover:scale-110"
-          />
-        )}
+        <ProductImage
+          imageUrl={product.image_url}
+          alt={product.name}
+          fill
+          sizes="(max-width: 768px) 100vw, 25vw"
+          className="object-contain p-3 transition-transform duration-300 group-hover:scale-110"
+        />
       </Link>
 
       <div className="relative z-10 text-center mt-6">

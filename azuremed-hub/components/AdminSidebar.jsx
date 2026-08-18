@@ -17,6 +17,7 @@ import {
   Megaphone,
 } from "lucide-react";
 import LogoutButton from "@/components/LogoutButton";
+import useOrderAttentionCount from "@/components/useOrderAttentionCount";
 
 /**
  * Faithful port of Admin-Dashboard/src/components/AdminDashboard/AdminDashboard.jsx's
@@ -39,6 +40,7 @@ const NAV_ITEMS = [
 
 export default function AdminSidebar({ userName }) {
   const pathname = usePathname();
+  const pendingOrderCount = useOrderAttentionCount("/api/admin/orders", true);
 
   return (
     <aside className="w-64 border-r border-slate-200 bg-white flex flex-col fixed top-0 left-0 h-full shrink-0 z-40">
@@ -63,15 +65,25 @@ export default function AdminSidebar({ userName }) {
         <nav className="flex min-h-0 max-h-[150px] flex-col gap-1 flex-grow overflow-y-auto">
           {NAV_ITEMS.map((item) => {
             const isActive = pathname === item.path;
+            const isOrderAlert = item.path === "/admin/orders" && pendingOrderCount > 0;
             return (
               <Link
                 key={item.name}
                 href={item.path}
                 className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-sm ${
-                  isActive ? "bg-blue-600 text-white shadow-md shadow-blue-200" : "text-slate-500 hover:bg-slate-50"
+                  isOrderAlert
+                    ? "bg-red-600 text-white shadow-md shadow-red-200 hover:bg-red-700"
+                    : isActive
+                    ? "bg-blue-600 text-white shadow-md shadow-blue-200"
+                    : "text-slate-500 hover:bg-slate-50"
                 }`}
               >
                 {item.icon} {item.name}
+                {isOrderAlert && (
+                  <span className="ml-auto min-w-6 animate-pulse rounded-full bg-white px-1.5 py-0.5 text-center text-xs font-black text-red-600">
+                    {pendingOrderCount > 99 ? "99+" : pendingOrderCount}
+                  </span>
+                )}
               </Link>
             );
           })}

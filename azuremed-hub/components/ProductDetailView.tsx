@@ -1,10 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import { Star } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
 import ProductReviewForm from "@/components/ProductReviewForm";
 import AddToCartButton from "@/components/AddToCartButton";
+import ProductImage from "@/components/ProductImage";
 
 interface Review {
   id: number;
@@ -43,16 +43,14 @@ export default function ProductDetailView({
     <div className="pt-28 sm:pt-32 pb-20">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10 grid md:grid-cols-2 gap-8 md:gap-12">
         <div className="relative h-[280px] sm:h-[360px] md:h-[440px] w-full rounded-3xl bg-gradient-to-br from-blue-50 to-indigo-50">
-          {product.image_url && (
-            <Image
-              src={product.image_url}
-              alt={product.name}
-              fill
-              sizes="(max-width: 768px) 100vw, 50vw"
-              className="object-contain p-8"
-              priority
-            />
-          )}
+          <ProductImage
+            imageUrl={product.image_url}
+            alt={product.name}
+            fill
+            sizes="(max-width: 768px) 100vw, 50vw"
+            className="object-contain p-8"
+            priority
+          />
         </div>
 
         <div>
