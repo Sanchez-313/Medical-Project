@@ -408,6 +408,14 @@ export const translations = {
   "orders.heading": { en: "Purchase Bills", my: "ဝယ်ယူမှုငွေတောင်းခံလွှာများ" },
   "orders.subheading": { en: "Your complete order history and billing details.", my: "သင့်အော်ဒါမှတ်တမ်းအပြည့်အစုံနှင့် ငွေတောင်းခံလွှာအသေးစိတ်။" },
   "orders.placedSuccess": { en: "Order {code} placed successfully!", my: "အော်ဒါ {code} အောင်မြင်စွာ တင်ပြီးပါပြီ!" },
+  "orders.placedPaymentConfirmed": {
+    en: "Payment confirmed for order {code} — it's now being processed!",
+    my: "အော်ဒါ {code} ၏ငွေပေးချေမှုကို အတည်ပြုပြီးပါပြီ — ယခု လုပ်ဆောင်နေပါသည်!",
+  },
+  "orders.placedPaymentRejected": {
+    en: "Payment for order {code} was rejected. Please contact support or place a new order.",
+    my: "အော်ဒါ {code} ၏ငွေပေးချေမှုကို ပယ်ချလိုက်ပါသည်။ ကျေးဇူးပြု၍ အကူအညီအဖွဲ့သို့ ဆက်သွယ်ပါ သို့မဟုတ် အော်ဒါအသစ်တင်ပါ။",
+  },
   "orders.timesBought": { en: "Times Bought", my: "ဝယ်ယူခဲ့သည့်အကြိမ်ရေ" },
   "orders.itemsPurchased": { en: "Items Purchased", my: "ဝယ်ယူထားသောပစ္စည်း" },
   "orders.totalSpent": { en: "Total Spent", my: "စုစုပေါင်းအသုံးစရိတ်" },

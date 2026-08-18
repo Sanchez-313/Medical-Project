@@ -39,7 +39,12 @@ const RAW_PRODUCTS = [
   { id: 3, name: "Maw Akari Herbal Inhaler", price: 3400, category: CAT_TRADITIONAL, image: `${MYA}/Maw Akari Herbal Inhaler.png` },
   { id: 4, name: "MedicineBox", price: 18000, category: CAT_PERSONAL, image: `${EQP}/MedicineBox.png` },
   { id: 5, name: "Maw Ri Ya Man Say", price: 1450, category: CAT_TRADITIONAL, image: `${MYA}/Maw Ri Ya Man Say.png` },
-  { id: 6, name: "Wone Wann ဝုန်းဝမ်း အကြောပြေလိမ်းဆေးဆီ (သံဘူး)", price: 2700, category: CAT_TRADITIONAL, image: `${MYA}/Wone Wann ဝုန်းဝမ်း အကြောပြေလိမ်းဆေးဆီ (သံဘူး).png` },
+  // image filename was the raw Myanmar product name (with spaces/parens) —
+  // renamed to an ASCII slug because unescaped non-ASCII/space filenames
+  // are exactly the class of asset that 404s intermittently across
+  // git checkout / Docker COPY / Alpine's non-UTF-8 default locale, even
+  // though the display `name` itself stays Burmese.
+  { id: 6, name: "Wone Wann ဝုန်းဝမ်း အကြောပြေလိမ်းဆေးဆီ (သံဘူး)", price: 2700, category: CAT_TRADITIONAL, image: `${MYA}/wone-wann-liniment-oil-tin.png` },
   { id: 7, name: "Stethoscope (Pro)", price: 65000, category: CAT_PERSONAL, image: `${EQP}/Stethoscope.png` },
   { id: 8, name: "Sanda Min Vision Supplement 40g", price: 1150, category: CAT_TRADITIONAL, image: `${MYA}/Sanda Min Vision Supplement 40g.png` },
   { id: 9, name: "AWaiYar", price: 3000, category: CAT_TRADITIONAL, image: `${MYA}/AWaiYar.png` },
@@ -117,7 +122,7 @@ const RAW_PRODUCTS = [
 
   { id: 75, name: "Sanda Mon Vision Supplement", price: 1750, category: CAT_TRADITIONAL, image: `${MYA}/Sanda Mon Vision Supplement.png` },
   { id: 76, name: "Shwe Ohh Wai Ginshauk Bot (Small)", price: 2100, category: CAT_TRADITIONAL, image: `${MYA}/Shwe Ohh Wai Ginshauk Bot (Small).png` },
-  { id: 77, name: "Wone Wann ပျားနနွင်း Turmeric Honey Tablets", price: 2000, category: CAT_TRADITIONAL, image: `${MYA}/Wone Wann ပျားနနွင်း Turmeric Honey Tablets.png` },
+  { id: 77, name: "Wone Wann ပျားနနွင်း Turmeric Honey Tablets", price: 2000, category: CAT_TRADITIONAL, image: `${MYA}/wone-wann-turmeric-honey-tablets.png` },
   { id: 78, name: "Oral Rehydration Salts (ORS)", price: 900, category: CAT_PERSONAL, image: `${PERSONAL}/Oral Rehydration Salts (ORS).png` },
   { id: 79, name: "ဦးချိန်တီ(U Chain Te)", price: 2200, category: CAT_TRADITIONAL, image: `${MYA}/u-chain-t-uhkyanete-aahcar-kyaysayylone-cosmetic-medicines-601.webp`, stock: 15 },
   { id: 80, name: "Generlog Oral", price: 4200, category: CAT_FEVER, image: `${FEVER}/Generlog Oral.png`, stock: 18 },

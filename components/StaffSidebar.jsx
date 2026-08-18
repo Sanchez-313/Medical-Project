@@ -69,7 +69,7 @@ export default function StaffSidebar({ userName, lowStockCount = 0 }) {
 
         {lowStockCount > 0 && (
           <Link
-            href="/staff/products"
+            href="/staff/products?filter=low"
             className="mt-2 flex items-center gap-3 rounded-xl border border-orange-100 bg-orange-50 px-4 py-3 text-sm font-bold text-orange-700 transition-all hover:bg-orange-100"
           >
             <AlertTriangle size={18} className="shrink-0" />

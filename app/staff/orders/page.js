@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { ClipboardList } from "lucide-react";
 import Pagination from "@/components/Pagination";
+import Toast from "@/components/Toast";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -32,24 +33,36 @@ export default function StaffOrdersPage() {
   const [reviewOrder, setReviewOrder] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [toast, setToast] = useState(null);
 
-  function loadOrders() {
-    setIsLoading(true);
+  // `silent` skips isLoading and the pagination reset — used for the
+  // background poll below so it doesn't flash "Loading..." or bounce staff
+  // back to page 1 every few seconds while they're browsing later pages.
+  function loadOrders({ silent = false } = {}) {
+    if (!silent) setIsLoading(true);
     return fetch("/api/staff/orders")
       .then((r) => r.json())
       .then((result) => {
         setOrders(result.success ? result.data : []);
-        setCurrentPage(1);
+        if (!silent) setCurrentPage(1);
       })
-      .finally(() => setIsLoading(false));
+      .finally(() => {
+        if (!silent) setIsLoading(false);
+      });
   }
 
   useEffect(() => {
     loadOrders();
+    // New storefront orders and other staff/admins' review decisions don't
+    // push any event here, so poll for them instead of requiring a manual
+    // refresh to see a just-placed order or an updated payment status.
+    const interval = setInterval(() => loadOrders({ silent: true }), 5000);
+    return () => clearInterval(interval);
   }, []);
 
   async function submitDecision(decision) {
     setBusyId(reviewOrder.id);
+    const orderCode = reviewOrder.order_code;
     const result = await fetch("/api/staff/orders", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -58,9 +71,16 @@ export default function StaffOrdersPage() {
     setBusyId(null);
     if (result.success) {
       setReviewOrder(null);
-      loadOrders();
+      loadOrders({ silent: true });
+      setToast({
+        type: decision === "confirmed" ? "success" : "error",
+        message:
+          decision === "confirmed"
+            ? `Payment confirmed for ${orderCode}.`
+            : `Payment rejected for ${orderCode}.`,
+      });
     } else {
-      alert(result.message);
+      setToast({ type: "error", message: result.message ?? "Could not save the decision." });
     }
   }
 
@@ -73,7 +93,7 @@ export default function StaffOrdersPage() {
     }).then((r) => r.json());
     setBusyId(null);
     if (result.success) {
-      loadOrders();
+      loadOrders({ silent: true });
     } else {
       alert(result.message);
     }
@@ -243,6 +263,8 @@ export default function StaffOrdersPage() {
           </div>
         </div>
       )}
+
+      <Toast toast={toast} onClose={() => setToast(null)} />
     </div>
   );
 }

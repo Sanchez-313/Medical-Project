@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { ClipboardList } from "lucide-react";
+import Toast from "@/components/Toast";
 
 // Mirrors lib/orderStatus.ts's forward-only pipeline — only the single
 // "next step" button is offered here; the server re-validates regardless.
@@ -21,21 +22,32 @@ export default function OrdersPage() {
   const [reviewOrder, setReviewOrder] = useState(null);
   const [deciding, setDeciding] = useState(false);
   const [busyId, setBusyId] = useState(null);
+  const [toast, setToast] = useState(null);
 
-  function loadOrders() {
-    setIsLoading(true);
+  // `silent` skips the isLoading flag — used for the background poll below
+  // so the table doesn't flash back to "Loading..." every few seconds.
+  function loadOrders({ silent = false } = {}) {
+    if (!silent) setIsLoading(true);
     return fetch("/api/admin/orders")
       .then((r) => r.json())
       .then((result) => setOrders(result.success ? result.data : []))
-      .finally(() => setIsLoading(false));
+      .finally(() => {
+        if (!silent) setIsLoading(false);
+      });
   }
 
   useEffect(() => {
     loadOrders();
+    // New storefront orders and other admins' review decisions don't push
+    // any event here, so poll for them instead of requiring a manual
+    // refresh to see a just-placed order or an updated payment status.
+    const interval = setInterval(() => loadOrders({ silent: true }), 5000);
+    return () => clearInterval(interval);
   }, []);
 
   async function submitDecision(decision) {
     setDeciding(true);
+    const orderCode = reviewOrder.code;
     const result = await fetch("/api/admin/orders", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -44,7 +56,16 @@ export default function OrdersPage() {
     setDeciding(false);
     if (result.success) {
       setReviewOrder(null);
-      loadOrders();
+      loadOrders({ silent: true });
+      setToast({
+        type: decision === "confirmed" ? "success" : "error",
+        message:
+          decision === "confirmed"
+            ? `Payment confirmed for ${orderCode}.`
+            : `Payment rejected for ${orderCode}.`,
+      });
+    } else {
+      setToast({ type: "error", message: result.message ?? "Could not save the decision." });
     }
   }
 
@@ -57,7 +78,7 @@ export default function OrdersPage() {
     }).then((r) => r.json());
     setBusyId(null);
     if (result.success) {
-      loadOrders();
+      loadOrders({ silent: true });
     } else {
       alert(result.message);
     }
@@ -242,6 +263,8 @@ export default function OrdersPage() {
           </div>
         </div>
       )}
+
+      <Toast toast={toast} onClose={() => setToast(null)} />
     </div>
   );
 }

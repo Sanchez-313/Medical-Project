@@ -71,6 +71,13 @@ services:
       - "3000:3000"
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    volumes:
+      # User-uploaded files (payment proofs, AI detections, medicine images)
+      # are written at runtime to public/uploads. Without this bind mount
+      # they'd live only in the container's writable layer and vanish on
+      # every rebuild/recreate — this shares the host's public/uploads dir
+      # instead, so uploads persist and are visible on both sides.
+      - ./public/uploads:/app/public/uploads
     networks: [medical-net]
 
   admin-dashboard:

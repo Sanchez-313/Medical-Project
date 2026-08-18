@@ -13,6 +13,20 @@ export function reservationExpiry(): Date {
 }
 
 /**
+ * Extends every item in this user's cart to the same reserved_until —
+ * called alongside any cart mutation (add, qty change, remove) so the whole
+ * cart shares one rolling hold instead of each row expiring independently
+ * at its own original add time. Without this, a customer who adds item A
+ * then, 10 minutes later, adds item B would have A silently released out
+ * from under them a few minutes after B — even though they're still
+ * actively shopping. Must run inside the same transaction as the mutation
+ * that triggered it.
+ */
+export async function refreshCartReservations(conn: PoolConnection, userId: number, until: Date): Promise<void> {
+  await conn.query("UPDATE cart_items SET reserved_until = :until WHERE user_id = :userId", { until, userId });
+}
+
+/**
  * Releases lapsed cart reservations: decrements medicines.reserved_qty by
  * the summed qty of any cart_items rows whose reserved_until has passed,
  * then deletes those rows. Called lazily — right before whatever operation

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Image from "next/image";
 import { Search, Boxes, X as XIcon } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import Pagination from "@/components/Pagination";
 
 const ITEMS_PER_PAGE = 10;
@@ -18,10 +19,19 @@ const STATUS_BADGE = {
  * stock-quantity adjustments. Full product editing (name/category/price/
  * description/image/expiry, creating new products) is Owner-only, done from
  * /admin/inventory — see app/api/staff/medicines/route.ts for why.
+ *
+ * Split into an inner component so useSearchParams (reading the sidebar's
+ * "N products low on stock" link's ?filter=low) can sit inside a Suspense
+ * boundary, matching the pattern in app/reset-password and
+ * app/(storefront)/products.
  */
-export default function StaffProductsPage() {
+function StaffProductsView() {
+  const searchParams = useSearchParams();
   const [products, setProducts] = useState([]);
   const [search, setSearch] = useState("");
+  // Seeded from ?filter=low so landing here from the sidebar's low-stock
+  // link shows only those products instead of the full catalog.
+  const [statusFilter, setStatusFilter] = useState(() => (searchParams.get("filter") === "low" ? "low" : "all"));
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -42,11 +52,13 @@ export default function StaffProductsPage() {
     loadProducts();
   }, []);
 
-  const filtered = products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
+  const filtered = products
+    .filter((p) => p.name.toLowerCase().includes(search.toLowerCase()))
+    .filter((p) => (statusFilter === "low" ? p.status === "low" : true));
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [search]);
+  }, [search, statusFilter]);
 
   const indexOfLastItem = currentPage * ITEMS_PER_PAGE;
   const currentItems = filtered.slice(indexOfLastItem - ITEMS_PER_PAGE, indexOfLastItem);
@@ -100,6 +112,17 @@ export default function StaffProductsPage() {
           />
         </div>
       </div>
+
+      {statusFilter === "low" && (
+        <div className="mb-4 flex items-center justify-between rounded-2xl border border-orange-200 bg-orange-50 px-5 py-3 text-sm font-semibold text-orange-700">
+          <span>
+            Showing {filtered.length} low-stock product{filtered.length === 1 ? "" : "s"}.
+          </span>
+          <button type="button" onClick={() => setStatusFilter("all")} className="font-black underline">
+            Clear filter
+          </button>
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-[2.5rem] border border-slate-100 bg-white shadow-sm">
         <table className="w-full text-left">
@@ -220,5 +243,13 @@ export default function StaffProductsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function StaffProductsPage() {
+  return (
+    <Suspense fallback={<div className="px-8 py-16 text-center font-bold text-slate-400">Loading...</div>}>
+      <StaffProductsView />
+    </Suspense>
   );
 }

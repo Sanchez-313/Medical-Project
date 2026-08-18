@@ -19,6 +19,7 @@ from telegram.ext import (
 from telegram.constants import ParseMode
 from telegram.error import BadRequest, TelegramError
 import os
+import time
 import logging
 from dotenv import load_dotenv
 
@@ -82,6 +83,19 @@ def is_telegram_button_url(url: str) -> bool:
     return url.startswith("https://")
 
 
+def cache_busted(url: str) -> str:
+    """Telegram's in-app WebView can cache a page by its exact URL string on
+    the client side, independent of whatever Cache-Control the server sends
+    (see next.config.js on the azuremed-hub side for the server half of this
+    fix) — reopening the same link kept showing whatever build was live the
+    first time it was tapped, even long after a fresh Railway deploy.
+    Appending a per-tap timestamp makes every open a distinct URL, forcing a
+    real fetch instead of a cached hit.
+    """
+    separator = "&" if "?" in url else "?"
+    return f"{url}{separator}_t={int(time.time())}"
+
+
 def main_menu_keyboard() -> InlineKeyboardMarkup:
     rows = [
         [InlineKeyboardButton("📊 ဆေးအမျိုးအစား", callback_data="categories")],
@@ -90,7 +104,7 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton("🗂 ကျွန်ုပ်၏မေးခွန်းများ", callback_data="my_tickets")],
     ]
     if is_telegram_button_url(SITE_URL):
-        rows.append([InlineKeyboardButton("🌐 ဝဘ်ဆိုဒ်သို့ သွားရန်", url=SITE_URL)])
+        rows.append([InlineKeyboardButton("🌐 ဝဘ်ဆိုဒ်သို့ သွားရန်", url=cache_busted(SITE_URL))])
     rows += [
         [InlineKeyboardButton("ℹ️ Bot အသုံးပြုနည်း", callback_data="help")],
         [InlineKeyboardButton("🧹 စကားအားလုံး ရှင်း", callback_data="clear")],
@@ -276,7 +290,7 @@ class MedicineBot:
         keyboard = []
         if is_telegram_button_url(SITE_URL):
             keyboard.append(
-                [InlineKeyboardButton("🛒 ဝဘ်ဆိုဒ်တွင် ကြည့်ရန်", url=f"{SITE_URL}/products/{medicine['id']}")]
+                [InlineKeyboardButton("🛒 ဝဘ်ဆိုဒ်တွင် ကြည့်ရန်", url=cache_busted(f"{SITE_URL}/products/{medicine['id']}"))]
             )
         keyboard += [
             [InlineKeyboardButton("🔍 ဆက်ရှာ", callback_data="search")],

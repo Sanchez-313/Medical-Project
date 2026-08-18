@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import pool from "@/config/db";
 import { requireRole, ROLE_GROUPS } from "@/lib/rbac";
-import { releaseExpiredReservations, getStockSnapshot, reservationExpiry } from "@/lib/cartReservation";
+import { releaseExpiredReservations, getStockSnapshot, reservationExpiry, refreshCartReservations } from "@/lib/cartReservation";
 import type { RowDataPacket } from "mysql2";
 
 export async function POST(request: Request) {
@@ -57,6 +57,9 @@ export async function POST(request: Request) {
       delta: additionalReserved,
       id: product_id,
     });
+    // Adding to the cart is a "still actively shopping" signal — extend
+    // every other item's hold to match, not just this one.
+    await refreshCartReservations(connection, userId, reservedUntil);
 
     await connection.commit();
 

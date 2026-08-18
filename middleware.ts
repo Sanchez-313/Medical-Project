@@ -24,15 +24,23 @@ const ROUTE_RULES: Array<{ prefix: string; roles: string[] }> = [
   { prefix: "/api/portal", roles: ["admin", "staff", "agent"] },
 ];
 
-function applySecurityHeaders(response: NextResponse): NextResponse {
-  // Next.js dev mode needs eval() for Fast Refresh/source maps and injects
-  // an inline bootstrap <script> for RSC hydration — a strict 'self'-only
-  // script-src blocks both, breaking every protected page on a fresh
-  // (non-HMR) load: no hydration means no useEffect, no onClick, pages get
-  // stuck showing their initial loading state. Production has no such
-  // requirement, so only development gets the relaxed policy.
+function applySecurityHeaders(response: NextResponse, nonce: string): NextResponse {
+  // Next.js injects inline <script> tags itself in BOTH dev and production
+  // — Fast Refresh/eval in dev, but also the RSC-payload/hydration bootstrap
+  // scripts in production builds. A bare 'self' script-src blocks those
+  // too, breaking every protected page after hydration (no useEffect, no
+  // onClick, stuck on the initial loading state). Instead of relaxing to
+  // 'unsafe-inline' in production, we use a per-request nonce: Next.js
+  // automatically stamps this nonce onto the inline scripts it generates
+  // once it sees one in the CSP header, so only Next's own scripts (and
+  // anything we explicitly tag) run — no unsafe-inline needed.
+  // 'strict-dynamic' lets those nonce-trusted scripts load Next's chunk
+  // scripts in turn; 'self' stays listed for older browsers that ignore
+  // strict-dynamic.
   const scriptSrc =
-    process.env.NODE_ENV === "production" ? "script-src 'self'" : "script-src 'self' 'unsafe-eval' 'unsafe-inline'";
+    process.env.NODE_ENV === "production"
+      ? `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`
+      : "script-src 'self' 'unsafe-eval' 'unsafe-inline'";
   response.headers.set(
     "Content-Security-Policy",
     `default-src 'self'; img-src 'self' data: blob:; ${scriptSrc}; style-src 'self' 'unsafe-inline'; connect-src 'self'`
@@ -53,6 +61,8 @@ function applySecurityHeaders(response: NextResponse): NextResponse {
 export default withAuth(
   function middleware(req: NextRequestWithAuth) {
     const { pathname } = req.nextUrl;
+    // Web Crypto is available globally in the Edge middleware runtime.
+    const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
 
     if (req.method === "POST" && RATE_LIMITED_PATHS.some((path) => pathname.startsWith(path))) {
       const key = `${clientIp(req)}:${pathname}`;
@@ -62,7 +72,8 @@ export default withAuth(
           NextResponse.json(
             { success: false, message: "Too many attempts. Please try again shortly." },
             { status: 429, headers: { "Retry-After": String(result.retryAfterSeconds) } }
-          )
+          ),
+          nonce
         );
       }
     }
@@ -73,13 +84,20 @@ export default withAuth(
     if (rule && (!role || !rule.roles.includes(role))) {
       if (pathname.startsWith("/api/")) {
         return applySecurityHeaders(
-          NextResponse.json({ success: false, message: "Forbidden" }, { status: 403 })
+          NextResponse.json({ success: false, message: "Forbidden" }, { status: 403 }),
+          nonce
         );
       }
-      return applySecurityHeaders(NextResponse.redirect(new URL("/login", req.url)));
+      return applySecurityHeaders(NextResponse.redirect(new URL("/login", req.url)), nonce);
     }
 
-    return applySecurityHeaders(NextResponse.next());
+    // Forward the nonce on the request so Server Components can read it
+    // via headers().get("x-nonce") if they ever need to tag a custom
+    // inline/external <script> themselves.
+    const requestHeaders = new Headers(req.headers);
+    requestHeaders.set("x-nonce", nonce);
+
+    return applySecurityHeaders(NextResponse.next({ request: { headers: requestHeaders } }), nonce);
   },
   {
     callbacks: {

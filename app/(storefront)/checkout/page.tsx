@@ -6,11 +6,12 @@ import Image from "next/image";
 import { Truck, CreditCard, Lock, CheckCircle, User, Phone, Mail, Upload, Tag } from "lucide-react";
 import { useCart } from "@/components/CartContext";
 import { useLanguage } from "@/components/LanguageContext";
+import Toast, { type ToastState } from "@/components/Toast";
 
 /** Ported from Medical_Product/src/components/CheckoutPage/CheckoutPage.jsx. */
 export default function CheckoutPage() {
   const router = useRouter();
-  const { cartItems, removeFromCart } = useCart();
+  const { cartItems, removeFromCart, refreshCart } = useCart();
   const { t } = useLanguage();
 
   const [paymentMethod, setPaymentMethod] = useState<"kpay" | "cod">("kpay");
@@ -18,6 +19,7 @@ export default function CheckoutPage() {
   const [missingFields, setMissingFields] = useState<Record<string, boolean>>({});
   const [notice, setNotice] = useState<{ type: "error" | "success"; message: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [toast, setToast] = useState<ToastState>(null);
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [proofPreview, setProofPreview] = useState<string | null>(null);
   const [deliveryFee, setDeliveryFee] = useState(0);
@@ -119,7 +121,18 @@ export default function CheckoutPage() {
       return;
     }
 
-    router.push(`/orders?placed=${result.data.order_code}`);
+    // The server already cleared this user's cart_items the moment the
+    // order was placed — unconditionally, before any admin review — but
+    // CartContext's client-side state doesn't know that yet. Without this,
+    // the navbar cart icon/panel keeps showing the just-ordered items until
+    // some unrelated mutation happens to trigger a refetch.
+    await refreshCart();
+
+    // Applies the same way for both kpay and COD — COD has no screenshot to
+    // review, so it's confirmed outright, but the customer still gets the
+    // same instant "placed" confirmation either way.
+    setToast({ type: "success", message: t("orders.placedSuccess").replace("{code}", result.data.order_code) });
+    setTimeout(() => router.push(`/orders?placed=${result.data.order_code}`), 1200);
   }
 
   return (
@@ -341,6 +354,8 @@ export default function CheckoutPage() {
           </div>
         </div>
       </main>
+
+      <Toast toast={toast} onClose={() => setToast(null)} />
     </div>
   );
 }

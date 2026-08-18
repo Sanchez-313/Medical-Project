@@ -1,7 +1,11 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/components/LanguageContext";
 import type { TranslationKey } from "@/lib/translations";
+import Toast, { type ToastState } from "@/components/Toast";
+
+const POLL_INTERVAL_MS = 5000;
 
 interface OrderItem {
   qty: number;
@@ -38,33 +42,84 @@ const STATUS_KEYS: Record<string, TranslationKey> = {
 /**
  * app/(storefront)/orders/page.tsx is a Server Component (auth check + DB
  * queries) so it can't call the client-only useLanguage() hook — this takes
- * the already-fetched data and does all the rendering/translation.
+ * the already-fetched data (as `initialOrders`) and does all the
+ * rendering/translation, then keeps itself live by polling /api/orders —
+ * an admin confirming/rejecting a payment doesn't push any event here, so
+ * without polling the customer would only see the outcome after a manual
+ * page refresh.
  */
 export default function OrdersView({
-  orders,
+  orders: initialOrders,
   placedCode,
-  timesBought,
-  itemsPurchased,
-  totalSpent,
 }: {
   orders: Order[];
   placedCode?: string;
-  timesBought: number;
-  itemsPurchased: number;
-  totalSpent: number;
 }) {
   const { t } = useLanguage();
+  const [orders, setOrders] = useState(initialOrders);
+  const [toast, setToast] = useState<ToastState>(null);
+  // Seeded from the server-rendered snapshot so the first poll tick doesn't
+  // treat "confirmed at page-load time" as a fresh change and fire a toast
+  // for something the customer already saw last visit.
+  const prevStatusesRef = useRef<Record<string, string>>(
+    Object.fromEntries(initialOrders.map((order) => [order.order_code, order.payment_status]))
+  );
+
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const result = await fetch("/api/orders").then((r) => r.json());
+      if (!result.success) return;
+      const fresh: Order[] = result.data.orders;
+
+      for (const order of fresh) {
+        const prevStatus = prevStatusesRef.current[order.order_code];
+        if (prevStatus === order.payment_status) continue;
+        if (order.payment_status === "rejected") {
+          setToast({ type: "error", message: t("orders.placedPaymentRejected").replace("{code}", order.order_code) });
+        } else if (order.payment_status === "confirmed") {
+          setToast({ type: "success", message: t("orders.placedPaymentConfirmed").replace("{code}", order.order_code) });
+        }
+      }
+      prevStatusesRef.current = Object.fromEntries(fresh.map((order) => [order.order_code, order.payment_status]));
+      setOrders(fresh);
+    }, POLL_INTERVAL_MS);
+    return () => clearInterval(interval);
+    // t/toast intentionally excluded — this interval is set up once and
+    // reads the latest `t`/setToast via closure just fine each tick.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // The order just placed (if any) — reflects whatever the admin/staff has
+  // decided as of the latest poll, so this banner updates live too instead
+  // of staying stuck on the original "placed successfully" text.
+  const placedOrder = placedCode ? orders.find((order) => order.order_code === placedCode) : undefined;
+
+  const timesBought = orders.length;
+  const itemsPurchased = orders.reduce((sum, order) => sum + order.items.reduce((s, item) => s + item.qty, 0), 0);
+  const totalSpent = orders.reduce((sum, order) => sum + Number(order.total_ks), 0);
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-28 sm:px-10">
       <h1 className="text-3xl font-bold text-zinc-800">{t("orders.heading")}</h1>
       <p className="mt-1 text-sm text-zinc-500">{t("orders.subheading")}</p>
 
-      {placedCode && (
-        <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm font-semibold text-emerald-700">
-          {t("orders.placedSuccess").replace("{code}", placedCode)}
+      {placedOrder && (
+        <div
+          className={`mt-4 rounded-2xl border px-5 py-3 text-sm font-semibold ${
+            placedOrder.payment_status === "rejected"
+              ? "border-red-200 bg-red-50 text-red-700"
+              : "border-emerald-200 bg-emerald-50 text-emerald-700"
+          }`}
+        >
+          {placedOrder.payment_status === "rejected"
+            ? t("orders.placedPaymentRejected").replace("{code}", placedOrder.order_code)
+            : placedOrder.payment_status === "confirmed"
+            ? t("orders.placedPaymentConfirmed").replace("{code}", placedOrder.order_code)
+            : t("orders.placedSuccess").replace("{code}", placedOrder.order_code)}
         </div>
       )}
+
+      <Toast toast={toast} onClose={() => setToast(null)} />
 
       <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-zinc-200 bg-white p-5">

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import pool from "@/config/db";
 import { requireRole, ROLE_GROUPS } from "@/lib/rbac";
-import { releaseExpiredReservations, getStockSnapshot, reservationExpiry } from "@/lib/cartReservation";
+import { releaseExpiredReservations, getStockSnapshot, reservationExpiry, refreshCartReservations } from "@/lib/cartReservation";
 import type { RowDataPacket } from "mysql2";
 
 /** [id] here is the medicine_id (matches the original app's /api/cart/items/:productId contract). */
@@ -71,6 +71,9 @@ export async function PATCH(request: Request, { params }: { params: { id: string
         id: medicineId,
       });
     }
+    // Changing quantity on one item is a "still actively shopping" signal —
+    // extend every other item's hold to match, not just this one.
+    await refreshCartReservations(connection, userId, reservedUntil);
 
     await connection.commit();
     return NextResponse.json({ success: true, data: { qty: finalQty, reservedUntil } });
@@ -107,6 +110,9 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
         userId,
         medicineId,
       });
+      // Removing an item is also a "still actively shopping" signal —
+      // extend whatever's left in the cart to match.
+      await refreshCartReservations(connection, userId, reservationExpiry());
     }
 
     await connection.commit();

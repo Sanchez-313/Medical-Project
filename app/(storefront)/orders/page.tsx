@@ -38,13 +38,6 @@ export default async function PurchaseBillsPage({
     order.items = items;
   }
 
-  const timesBought = orders.length;
-  const itemsPurchased = orders.reduce(
-    (sum, order) => sum + order.items.reduce((s: number, item: RowDataPacket) => s + item.qty, 0),
-    0
-  );
-  const totalSpent = orders.reduce((sum, order) => sum + order.total_ks, 0);
-
   return (
     <OrdersView
       orders={orders.map((order) => ({
@@ -68,9 +61,6 @@ export default async function PurchaseBillsPage({
         })),
       }))}
       placedCode={searchParams.placed}
-      timesBought={timesBought}
-      itemsPurchased={itemsPurchased}
-      totalSpent={totalSpent}
     />
   );
 }
