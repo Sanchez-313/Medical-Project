@@ -175,6 +175,8 @@ CREATE TABLE IF NOT EXISTS orders (
   -- money changed hands is the safer default.
   payment_proof_url TEXT NULL,
   payment_status ENUM('not_required', 'pending_review', 'confirmed', 'rejected') NOT NULL DEFAULT 'not_required',
+  telegram_chat_id BIGINT NULL,
+  telegram_username VARCHAR(255) NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users(id),
   INDEX idx_orders_user (user_id),

@@ -31,8 +31,13 @@ function applySecurityHeaders(response: NextResponse): NextResponse {
   // (non-HMR) load: no hydration means no useEffect, no onClick, pages get
   // stuck showing their initial loading state. Production has no such
   // requirement, so only development gets the relaxed policy.
+  // Next.js also injects inline RSC/bootstrap scripts in production. Until
+  // this middleware threads a per-request nonce through the NextAuth wrapper,
+  // allow those inline hydration scripts; keep unsafe-eval development-only.
   const scriptSrc =
-    process.env.NODE_ENV === "production" ? "script-src 'self'" : "script-src 'self' 'unsafe-eval' 'unsafe-inline'";
+    process.env.NODE_ENV === "production"
+      ? "script-src 'self' 'unsafe-inline'"
+      : "script-src 'self' 'unsafe-eval' 'unsafe-inline'";
   response.headers.set(
     "Content-Security-Policy",
     `default-src 'self'; img-src 'self' data: blob:; ${scriptSrc}; style-src 'self' 'unsafe-inline'; connect-src 'self'`

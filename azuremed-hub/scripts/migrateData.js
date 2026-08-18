@@ -48,7 +48,7 @@ async function connect() {
   });
 }
 
-async function dump() {
+async function dump(filePath) {
   const connection = await connect();
   const lines = ["SET FOREIGN_KEY_CHECKS=0;", ""];
 
@@ -86,8 +86,16 @@ async function dump() {
 
   lines.push("SET FOREIGN_KEY_CHECKS=1;");
   await connection.end();
-  process.stdout.write(lines.join("\n") + "\n");
-  console.error(`Dumped ${TABLES.length} tables' worth of data to stdout.`);
+  const output = lines.join("\n") + "\n";
+  if (filePath) {
+    // Writing directly from Node avoids Windows PowerShell 5 converting
+    // redirected native stdout to UTF-16 and corrupting Myanmar text.
+    fs.writeFileSync(filePath, output, "utf8");
+    console.error(`Dumped ${TABLES.length} tables' worth of data to ${filePath}.`);
+  } else {
+    process.stdout.write(output);
+    console.error(`Dumped ${TABLES.length} tables' worth of data to stdout.`);
+  }
 }
 
 async function restore(filePath) {
@@ -106,7 +114,7 @@ async function restore(filePath) {
 
 const [, , command, arg] = process.argv;
 if (command === "dump") {
-  dump().catch((error) => {
+  dump(arg).catch((error) => {
     console.error(error);
     process.exitCode = 1;
   });

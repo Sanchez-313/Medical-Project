@@ -66,7 +66,19 @@ async function addIndexIfMissing(connection, table, indexName, columns) {
 }
 
 async function main() {
-  const sql = fs.readFileSync(path.join(__dirname, "..", "config", "azuremed_schema.sql"), "utf8");
+  const dbName = process.env.DB_NAME || "azuremed_hub";
+  if (!/^[A-Za-z0-9_]+$/.test(dbName)) {
+    throw new Error("DB_NAME may contain only letters, numbers, and underscores.");
+  }
+
+  // The schema file is also usable directly for local development and
+  // therefore contains CREATE DATABASE/USE statements for azuremed_hub.
+  // Strip those statements here so hosted databases (for example Railway's
+  // `railway` database) receive the tables in the configured DB_NAME.
+  const sql = fs
+    .readFileSync(path.join(__dirname, "..", "config", "azuremed_schema.sql"), "utf8")
+    .replace(/^CREATE DATABASE IF NOT EXISTS azuremed_hub[^;]*;\s*$/im, "")
+    .replace(/^USE azuremed_hub;\s*$/im, "");
 
   const connection = await mysql.createConnection({
     host: process.env.DB_HOST || "127.0.0.1",
@@ -80,7 +92,10 @@ async function main() {
   // effect once the `sql` blob below runs — the pre-emptive ALTER right
   // after this needs a database selected on the connection already, hence
   // this explicit USE (harmless no-op once schema.sql's own USE runs too).
-  await connection.query(`USE ${process.env.DB_NAME || "azuremed_hub"}`).catch(() => {});
+  await connection.query(
+    `CREATE DATABASE IF NOT EXISTS \`${dbName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
+  );
+  await connection.query(`USE \`${dbName}\``);
 
   // store_settings.free_delivery_threshold_ks needs to exist BEFORE the
   // schema.sql blob below runs, because that blob's own INSERT IGNORE seed
@@ -110,6 +125,15 @@ async function main() {
     "orders",
     "payment_status",
     "ENUM('not_required','pending_review','confirmed','rejected') NOT NULL DEFAULT 'not_required' AFTER payment_proof_url"
+  );
+  // Preserve Telegram attribution present on orders imported from the
+  // original database. Current website orders leave these nullable.
+  await addColumnIfMissing(connection, "orders", "telegram_chat_id", "BIGINT NULL AFTER payment_status");
+  await addColumnIfMissing(
+    connection,
+    "orders",
+    "telegram_username",
+    "VARCHAR(255) NULL AFTER telegram_chat_id"
   );
   // 2FA/TOTP feature (Security page + /api/account/2fa/*) was removed
   // entirely — drop the now-dead columns rather than leave them as unused
