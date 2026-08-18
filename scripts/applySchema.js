@@ -120,6 +120,12 @@ async function main() {
   await addColumnIfMissing(connection, "orders", "delivery_fee_ks", "INT NOT NULL DEFAULT 0 AFTER tax_ks");
   await addColumnIfMissing(connection, "orders", "discount_ks", "INT NOT NULL DEFAULT 0 AFTER delivery_fee_ks");
   await addColumnIfMissing(connection, "orders", "promo_code", "VARCHAR(50) NULL AFTER discount_ks");
+
+  // Orders placed through the Telegram bot (see
+  // app/api/orders/telegram/route.ts) — same pattern as
+  // customer_queries.telegram_chat_id below.
+  await addColumnIfMissing(connection, "orders", "telegram_chat_id", "BIGINT NULL AFTER payment_status");
+  await addColumnIfMissing(connection, "orders", "telegram_username", "VARCHAR(255) NULL AFTER telegram_chat_id");
   if (await tableExists(connection, "orders")) {
     await connection.query(`
       ALTER TABLE orders MODIFY COLUMN status ENUM('pending','confirmed','processing','shipped','delivered','cancelled') NOT NULL DEFAULT 'pending'

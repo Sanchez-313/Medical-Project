@@ -17,7 +17,7 @@ export async function GET() {
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT id, order_code, shipping_name, shipping_phone, payment_method,
             subtotal_ks, delivery_fee_ks, discount_ks, total_ks, status,
-            payment_proof_url, payment_status, created_at
+            payment_proof_url, payment_status, telegram_username, created_at
      FROM orders
      ORDER BY created_at DESC
      LIMIT 100`

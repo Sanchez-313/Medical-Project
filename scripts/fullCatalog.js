@@ -132,7 +132,6 @@ const RAW_PRODUCTS = [
   { id: 84, name: "Axiona", price: 2800, category: CAT_FEVER, image: `${FEVER}/Axiona.png`, stock: 16 },
   { id: 85, name: "Ribovit Tablet", price: 4800, category: CAT_FITNESS, image: `${FEVER}/Ribovit Tablet.png`, stock: 12 },
   { id: 86, name: "Kotase", price: 3000, category: CAT_PERSONAL, image: `${FEVER}/Kotase.png`, stock: 9 },
-  { id: 87, name: "Multivitaminus", price: 5200, category: CAT_FITNESS, image: `${FEVER}/Cevit.png`, stock: 20 },
   { id: 88, name: "SEZO-B Cream", price: 3600, category: CAT_PERSONAL, image: `${PERSONAL}/SEZO-B.png`, stock: 11 },
   { id: 89, name: "Fungiderm Cream", price: 4300, category: CAT_PERSONAL, image: `${PERSONAL}/fungiderm.png`, stock: 13 },
 ];
@@ -186,7 +185,6 @@ const DESCRIPTION_BY_NAME = {
   "axiona": "Pain relief medicine commonly used for mild to moderate aches and fever support. Use as directed.",
   "ribovit tablet": "Vitamin B complex supplement used to support energy and nutritional balance.",
   "kotase": "Digestive support medicine commonly used for stomach comfort and digestion support.",
-  "multivitaminus": "Multivitamin supplement used to support daily nutritional needs and general wellness.",
   "sezo b cream": "Topical cream used for minor skin irritation and surface discomfort. Apply as directed.",
   "fungiderm cream": "Antifungal cream commonly used for fungal skin infections and itching. Apply as directed.",
   "monywar sa yar moe laxative 64g": "Traditional herbal laxative to support bowel regularity. Use as directed.",

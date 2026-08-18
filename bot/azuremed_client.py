@@ -106,6 +106,62 @@ async def get_my_tickets(chat_id: int) -> list[dict]:
         raise AzuremedApiError("မေးခွန်းများကို ဆွဲယူ၍မရပါ။ ထပ်ကြိုးစားကြည့်ပါ။") from exc
 
 
+async def place_order(
+    chat_id: int,
+    username: Optional[str],
+    product_id: int,
+    qty: int,
+    payment_method: str,
+    full_name: str,
+    phone: str,
+    city: str,
+    address: str,
+    payment_proof: Optional[tuple] = None,
+) -> dict:
+    """POST a Telegram-collected order to /api/orders/telegram. `payment_proof`,
+    if given, is (filename, bytes, mime_type) for the KBZ Pay screenshot the
+    customer sent as a photo message. Returns the created order's data
+    (order_code, total_ks, etc.) on success.
+    """
+    data = {
+        "chat_id": str(chat_id),
+        "username": username or "",
+        "product_id": str(product_id),
+        "qty": str(qty),
+        "payment_method": payment_method,
+        "full_name": full_name,
+        "phone": phone,
+        "city": city,
+        "address": address,
+    }
+    files = None
+    if payment_proof:
+        filename, content, mime_type = payment_proof
+        files = {"payment_proof": (filename, content, mime_type)}
+
+    try:
+        resp = await _client.post("/api/orders/telegram", data=data, files=files, headers=_bot_headers())
+        resp.raise_for_status()
+        return resp.json()["data"]
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 429:
+            raise AzuremedApiError(
+                "အော်ဒါများ တိုတိုချင်း အလွန်များနေပါသည်။ မိနစ်အနည်းငယ်စောင့်ပြီး ထပ်ကြိုးစားပါ။"
+            ) from exc
+        # Surface the site's own validation message (e.g. "X only has N in
+        # stock", "A KBZ Pay payment screenshot is required") rather than a
+        # generic failure — these are actionable, unlike a 500.
+        try:
+            server_message = exc.response.json().get("message")
+        except ValueError:
+            server_message = None
+        logger.warning("Order submission rejected (%s): %s", exc.response.status_code, exc.response.text)
+        raise AzuremedApiError(server_message or "ဝဘ်ဆိုဒ်က အော်ဒါကို လက်မခံပါ။ ထပ်ကြိုးစားကြည့်ပါ။") from exc
+    except httpx.HTTPError as exc:
+        logger.warning("Failed to submit order: %s", exc)
+        raise AzuremedApiError("ဝဘ်ဆိုဒ်သို့ အော်ဒါပို့၍မရပါ။ အင်တာနက်ချိတ်ဆက်မှု စစ်ဆေးပြီး ထပ်ကြိုးစားပါ။") from exc
+
+
 async def submit_staff_answer(ticket_id: int, telegram_user_id: int, staff_response: str) -> int:
     """POST a staff member's typed answer (after tapping "✍️ Reply" on a
     ticket alert) to /api/support/telegram/answer. Returns the answered

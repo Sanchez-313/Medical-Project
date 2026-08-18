@@ -21,6 +21,7 @@ from telegram.error import BadRequest, TelegramError
 import os
 import time
 import logging
+from typing import Optional
 from dotenv import load_dotenv
 
 # Must run before importing azuremed_client — that module reads
@@ -288,6 +289,12 @@ class MedicineBot:
         """
 
         keyboard = []
+        # "expired" here means out of stock / withdrawn (see STATUS_LABELS) —
+        # nothing to actually sell, so no point offering to order it. The
+        # API re-checks stock at submit time regardless; this is just to
+        # avoid starting a multi-step conversation that's doomed to fail.
+        if medicine["status"] != "expired":
+            keyboard.append([InlineKeyboardButton("🛍️ ဝယ်ယူရန်", callback_data=f"order_{medicine['id']}")])
         if is_telegram_button_url(SITE_URL):
             keyboard.append(
                 [InlineKeyboardButton("🛒 ဝဘ်ဆိုဒ်တွင် ကြည့်ရန်", url=cache_busted(f"{SITE_URL}/products/{medicine['id']}"))]
@@ -367,6 +374,218 @@ class MedicineBot:
             f"🔎 *{len(matches)} ခု တွေ့ရှိသည်* — ရွေးချယ်ပါ:",
             parse_mode=ParseMode.MARKDOWN,
             reply_markup=InlineKeyboardMarkup(keyboard),
+        )
+
+    # ---- Ordering (writes into the site's orders/order_items) ------------
+    # One medicine at a time (see medicine_info's "🛍️ ဝယ်ယူရန်" button) — a
+    # short tap-then-type chain collects qty -> name -> phone -> city ->
+    # address -> payment method, then (KBZ Pay only) a screenshot photo,
+    # before POSTing to /api/orders/telegram. Mirrors the website checkout
+    # form field-for-field; see app/(storefront)/checkout/page.tsx.
+
+    async def order_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        query = update.callback_query
+        await query.answer()
+
+        medicine_id = int(query.data.split("_", 1)[1])
+        try:
+            items = await api.get_catalog()
+        except api.AzuremedApiError as exc:
+            await self._show_api_error(query, str(exc))
+            return
+
+        medicine = api.find_medicine(items, medicine_id)
+        if not medicine:
+            await query.edit_message_text(
+                "❌ ဤဆေးကို ဝဘ်ဆိုဒ်တွင် ရှာမတွေ့တော့ပါ (ရောင်းကုန်သွားနိုင်သည်)။",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🏠 ပင်မစာ", callback_data="main_menu")]]),
+            )
+            return
+        if medicine["status"] == "expired":
+            await query.edit_message_text(
+                "❌ ဤဆေးသည် လောလောဆယ် မရရှိနိုင်ပါ။",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🏠 ပင်မစာ", callback_data="main_menu")]]),
+            )
+            return
+
+        self.user_sessions[update.effective_user.id] = {
+            "step": "order_qty",
+            "medicine_id": medicine["id"],
+            "medicine_name": medicine["name"],
+        }
+        keyboard = [[InlineKeyboardButton("❌ ပယ်ဖျက်", callback_data="cancel")]]
+        await query.edit_message_text(
+            f"🛍️ *{medicine['name']}*\n💰 {format_price(medicine['selling_price_ks'])}\n\n"
+            "အရေအတွက် ဘယ်နှစ်ခု ဝယ်မလဲ? (ဂဏန်းရိုက်ထည့်ပါ — ဥပမာ: 2)",
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+        )
+
+    async def handle_order_qty(self, update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
+        context.chat_data.setdefault("messages", []).append(update.message.message_id)
+        session = self.user_sessions.get(update.effective_user.id)
+        if not session:
+            return
+
+        try:
+            qty = int(text.strip())
+            if qty < 1 or qty > 50:
+                raise ValueError
+        except ValueError:
+            await update.message.reply_text("❌ ၁ မှ ၅၀ ကြား ဂဏန်းတစ်ခု ရိုက်ထည့်ပါ။")
+            return
+
+        session["qty"] = qty
+        session["step"] = "order_name"
+        await update.message.reply_text("👤 အမည်အပြည့်အစုံ ရိုက်ထည့်ပါ:")
+
+    async def handle_order_name(self, update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
+        context.chat_data.setdefault("messages", []).append(update.message.message_id)
+        session = self.user_sessions.get(update.effective_user.id)
+        if not session:
+            return
+
+        full_name = text.strip()
+        if not full_name:
+            await update.message.reply_text("❌ အမည် ရိုက်ထည့်ပါ။")
+            return
+
+        session["full_name"] = full_name
+        session["step"] = "order_phone"
+        await update.message.reply_text("📞 ဆက်သွယ်ရန် ဖုန်းနံပါတ် ရိုက်ထည့်ပါ:")
+
+    async def handle_order_phone(self, update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
+        context.chat_data.setdefault("messages", []).append(update.message.message_id)
+        session = self.user_sessions.get(update.effective_user.id)
+        if not session:
+            return
+
+        phone = text.strip()
+        if not phone:
+            await update.message.reply_text("❌ ဖုန်းနံပါတ် ရိုက်ထည့်ပါ။")
+            return
+
+        session["phone"] = phone
+        session["step"] = "order_city"
+        await update.message.reply_text("🏙️ မြို့ ရိုက်ထည့်ပါ (ဥပမာ: Yangon):")
+
+    async def handle_order_city(self, update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
+        context.chat_data.setdefault("messages", []).append(update.message.message_id)
+        session = self.user_sessions.get(update.effective_user.id)
+        if not session:
+            return
+
+        city = text.strip()
+        if not city:
+            await update.message.reply_text("❌ မြို့ ရိုက်ထည့်ပါ။")
+            return
+
+        session["city"] = city
+        session["step"] = "order_address"
+        await update.message.reply_text("🏠 အိမ်လိပ်စာအပြည့်အစုံ ရိုက်ထည့်ပါ:")
+
+    async def handle_order_address(self, update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
+        context.chat_data.setdefault("messages", []).append(update.message.message_id)
+        session = self.user_sessions.get(update.effective_user.id)
+        if not session:
+            return
+
+        address = text.strip()
+        if not address:
+            await update.message.reply_text("❌ လိပ်စာ ရိုက်ထည့်ပါ။")
+            return
+
+        session["address"] = address
+        session["step"] = "order_payment"
+        keyboard = [
+            [InlineKeyboardButton("💳 KBZ Pay", callback_data="orderpay_kpay")],
+            [InlineKeyboardButton("💵 Cash on Delivery", callback_data="orderpay_cod")],
+            [InlineKeyboardButton("❌ ပယ်ဖျက်", callback_data="cancel")],
+        ]
+        await update.message.reply_text("💰 ငွေပေးချေမှုနည်းလမ်း ရွေးပါ:", reply_markup=InlineKeyboardMarkup(keyboard))
+
+    async def order_payment_choice(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        query = update.callback_query
+        await query.answer()
+
+        session = self.user_sessions.get(update.effective_user.id)
+        if not session or session.get("step") != "order_payment":
+            await query.edit_message_text(
+                "❌ Session ကုန်သွားပါပြီ။ ပြန်စတင်ပါ။",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🏠 ပင်မစာ", callback_data="main_menu")]]),
+            )
+            return
+
+        method = "kpay" if query.data == "orderpay_kpay" else "cod"
+        session["payment_method"] = method
+
+        if method == "cod":
+            await query.edit_message_text("⏳ အော်ဒါ တင်နေပါသည်...")
+            await self._finalize_order(update, context, session, photo_bytes=None)
+            return
+
+        session["step"] = "order_screenshot"
+        await query.edit_message_text(
+            "📸 KBZ Pay ငွေလွှဲပြေစာ screenshot ကို ဓာတ်ပုံအဖြစ် ပို့ပေးပါ။\n\n❌ ပယ်ဖျက်ရန် /start"
+        )
+
+    async def handle_photo(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Only meaningful mid-order (see order_payment_choice) — a photo
+        sent at any other time is silently ignored rather than treated as a
+        stray payment screenshot for a step that isn't waiting for one.
+        """
+        session = self.user_sessions.get(update.effective_user.id)
+        if not session or session.get("step") != "order_screenshot":
+            return
+        context.chat_data.setdefault("messages", []).append(update.message.message_id)
+
+        # Telegram sends several resolutions of the same photo; the last
+        # entry is the largest.
+        photo = update.message.photo[-1]
+        tg_file = await context.bot.get_file(photo.file_id)
+        photo_bytes = bytes(await tg_file.download_as_bytearray())
+
+        await update.message.reply_text("⏳ အော်ဒါ တင်နေပါသည်...")
+        await self._finalize_order(update, context, session, photo_bytes=photo_bytes)
+
+    async def _finalize_order(self, update: Update, context: ContextTypes.DEFAULT_TYPE, session: dict, photo_bytes: Optional[bytes]):
+        user = update.effective_user
+        try:
+            order = await api.place_order(
+                chat_id=user.id,
+                username=user.username,
+                product_id=session["medicine_id"],
+                qty=session["qty"],
+                payment_method=session["payment_method"],
+                full_name=session["full_name"],
+                phone=session["phone"],
+                city=session["city"],
+                address=session["address"],
+                payment_proof=("screenshot.jpg", photo_bytes, "image/jpeg") if photo_bytes else None,
+            )
+        except api.AzuremedApiError as exc:
+            self.user_sessions.pop(user.id, None)
+            keyboard = [[InlineKeyboardButton("🏠 ပင်မစာ", callback_data="main_menu")]]
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id, text=str(exc), reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+            return
+
+        self.user_sessions.pop(user.id, None)
+        followup = (
+            "ငွေပေးချေမှုကို ဝန်ထမ်းများက စစ်ဆေးပြီးနောက် အော်ဒါကို ဆက်လက်လုပ်ဆောင်ပါမည်။"
+            if session["payment_method"] == "kpay"
+            else "အော်ဒါကို ပြင်ဆင်နေပါပြီ — အိမ်တိုင်ရာရောက် ငွေချေရန် ပြင်ဆင်ထားပါ။"
+        )
+        text = (
+            f"✅ *အော်ဒါ တင်ပြီးပါပြီ!*\n\n"
+            f"🧾 Order: `{order['order_code']}`\n"
+            f"💰 စုစုပေါင်း: {format_price(order['total_ks'])}\n\n"
+            f"{followup}"
+        )
+        keyboard = [[InlineKeyboardButton("🏠 ပင်မစာ", callback_data="main_menu")]]
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id, text=text, parse_mode=ParseMode.MARKDOWN, reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
     # ---- Support tickets (writes into the site's customer_queries) -------
@@ -497,6 +716,10 @@ class MedicineBot:
             await self.category_medicines(update, context)
         elif data.startswith("med_"):
             await self.medicine_info(update, context)
+        elif data.startswith("orderpay_"):
+            await self.order_payment_choice(update, context)
+        elif data.startswith("order_"):
+            await self.order_start(update, context)
         elif data.startswith("answer_"):
             await self.answer_prompt(update, context)
 
@@ -529,6 +752,16 @@ class MedicineBot:
             await self.handle_question(update, context, update.message.text)
         elif step == "answering_ticket":
             await self.handle_staff_answer(update, context, session["ticket_id"], update.message.text)
+        elif step == "order_qty":
+            await self.handle_order_qty(update, context, update.message.text)
+        elif step == "order_name":
+            await self.handle_order_name(update, context, update.message.text)
+        elif step == "order_phone":
+            await self.handle_order_phone(update, context, update.message.text)
+        elif step == "order_city":
+            await self.handle_order_city(update, context, update.message.text)
+        elif step == "order_address":
+            await self.handle_order_address(update, context, update.message.text)
         # No active step — ignore stray text instead of guessing intent.
 
     async def handle_staff_answer(self, update: Update, context: ContextTypes.DEFAULT_TYPE, ticket_id: int, text: str):
@@ -614,6 +847,7 @@ def main():
     app.add_handler(CommandHandler("clear", bot.super_clear))
     app.add_handler(CallbackQueryHandler(bot.button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, bot.handle_text))
+    app.add_handler(MessageHandler(filters.PHOTO, bot.handle_photo))
     app.add_error_handler(bot.on_error)
 
     print("🤖 Medicine Bot Started!")

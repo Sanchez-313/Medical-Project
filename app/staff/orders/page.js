@@ -142,7 +142,12 @@ export default function StaffOrdersPage() {
                         <p className="text-sm font-black text-slate-800">{order.order_code}</p>
                       </div>
                     </td>
-                    <td className="px-6 py-5 text-sm text-slate-600">{order.shipping_name}</td>
+                    <td className="px-6 py-5 text-sm text-slate-600">
+                      {order.shipping_name}
+                      {order.telegram_username && (
+                        <span className="ml-1.5 text-xs font-semibold text-sky-500">@{order.telegram_username}</span>
+                      )}
+                    </td>
                     <td className="px-6 py-5 text-sm font-black text-slate-900">
                       {Number(order.total_ks).toLocaleString()} MMK
                     </td>

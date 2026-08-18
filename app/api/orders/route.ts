@@ -1,29 +1,8 @@
 import { NextResponse } from "next/server";
-import { mkdir, writeFile } from "fs/promises";
-import path from "path";
-import { randomUUID } from "crypto";
 import pool from "@/config/db";
 import { requireRole, ROLE_GROUPS } from "@/lib/rbac";
-import type { RowDataPacket, ResultSetHeader } from "mysql2";
-
-const TAX_RATE = 0.05;
-
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-const EXTENSION_BY_MIME: Record<string, string> = {
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-};
-const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "payment-proofs");
-
-interface ShippingInfo {
-  fullName: string;
-  email: string;
-  phone: string;
-  city: string;
-  address: string;
-}
+import { createOrder, savePaymentProofImage, type ShippingInfo } from "@/lib/orders";
+import type { RowDataPacket } from "mysql2";
 
 /** Customer's own order history, most recent first, with line items. */
 export async function GET() {
@@ -65,6 +44,9 @@ export async function POST(request: Request) {
 
   const formData = await request.formData();
   const payment_method = formData.get("payment_method") as "kpay" | "cod" | null;
+  if (payment_method !== "kpay" && payment_method !== "cod") {
+    return NextResponse.json({ success: false, message: "payment_method must be 'kpay' or 'cod'" }, { status: 400 });
+  }
   let shipping: ShippingInfo;
   let items: Array<{ product_id: number; qty: number }>;
   try {
@@ -93,149 +75,32 @@ export async function POST(request: Request) {
 
   let paymentProofUrl: string | null = null;
   if (proofFile instanceof File) {
-    if (!ALLOWED_MIME_TYPES.has(proofFile.type)) {
-      return NextResponse.json({ success: false, message: "unsupported image type" }, { status: 415 });
+    try {
+      paymentProofUrl = await savePaymentProofImage(proofFile);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not save payment screenshot";
+      const status = message.includes("5MB") ? 413 : 415;
+      return NextResponse.json({ success: false, message }, { status });
     }
-    if (proofFile.size > MAX_IMAGE_BYTES) {
-      return NextResponse.json({ success: false, message: "image exceeds 5MB limit" }, { status: 413 });
-    }
-    const bytes = Buffer.from(await proofFile.arrayBuffer());
-    await mkdir(UPLOAD_DIR, { recursive: true });
-    const filename = `${randomUUID()}.${EXTENSION_BY_MIME[proofFile.type]}`;
-    await writeFile(path.join(UPLOAD_DIR, filename), bytes);
-    paymentProofUrl = `/uploads/payment-proofs/${filename}`;
   }
 
-  const paymentStatus = payment_method === "kpay" ? "pending_review" : "not_required";
-
   const userId = Number(gate.session.user.id);
-  const connection = await pool.getConnection();
 
   try {
-    await connection.beginTransaction();
-
-    let subtotalKs = 0;
-    const lineItems: Array<{ medicineId: number; qty: number; unitPriceKs: number; totalPriceKs: number }> = [];
-
-    for (const line of items) {
-      const [[medicine]] = await connection.query<RowDataPacket[]>(
-        "SELECT id, name, selling_price_ks, stock_qty FROM medicines WHERE id = :id AND is_active = 1 FOR UPDATE",
-        { id: line.product_id }
-      );
-      if (!medicine) throw new Error(`Product ${line.product_id} not found`);
-      if (medicine.stock_qty < line.qty) throw new Error(`${medicine.name} only has ${medicine.stock_qty} in stock`);
-
-      const lineTotal = medicine.selling_price_ks * line.qty;
-      subtotalKs += lineTotal;
-      lineItems.push({ medicineId: medicine.id, qty: line.qty, unitPriceKs: medicine.selling_price_ks, totalPriceKs: lineTotal });
-
-      await connection.query("UPDATE medicines SET stock_qty = stock_qty - :qty WHERE id = :id", {
-        qty: line.qty,
-        id: medicine.id,
-      });
-    }
-
-    // Discount and delivery fee are always recomputed here from the DB, never
-    // trusted from the client — the client only ever saw a preview via
-    // /api/promo/validate and /api/settings/public.
-    let discountKs = 0;
-    if (promoCodeInput) {
-      const [[promo]] = await connection.query<RowDataPacket[]>(
-        "SELECT discount_percent FROM promo_codes WHERE code = :code AND is_active = 1",
-        { code: promoCodeInput }
-      );
-      if (!promo) throw new Error("Promo code is no longer valid");
-      discountKs = Math.round((subtotalKs * promo.discount_percent) / 100);
-    }
-
-    const [[storeSettings]] = await connection.query<RowDataPacket[]>(
-      "SELECT delivery_fee_ks, free_delivery_threshold_ks FROM store_settings WHERE id = 1"
-    );
-    const freeDeliveryThresholdKs = storeSettings?.free_delivery_threshold_ks ?? 0;
-    // Every order still ships — there's no in-store pickup in this app —
-    // reaching the threshold only waives the fee, same rule as the checkout
-    // page preview in app/(storefront)/checkout/page.tsx.
-    const deliveryFeeKs =
-      freeDeliveryThresholdKs > 0 && subtotalKs >= freeDeliveryThresholdKs ? 0 : storeSettings?.delivery_fee_ks ?? 0;
-
-    const taxKs = Math.round(subtotalKs * TAX_RATE);
-    const totalKs = subtotalKs + taxKs + deliveryFeeKs - discountKs;
-    const orderCode = `ORD-${Date.now()}`;
-
-    const [orderResult] = await connection.query<ResultSetHeader>(
-      `INSERT INTO orders (order_code, user_id, payment_method, shipping_name, shipping_email, shipping_phone, shipping_city, shipping_address, subtotal_ks, tax_ks, delivery_fee_ks, discount_ks, promo_code, total_ks, status, payment_proof_url, payment_status)
-       VALUES (:order_code, :user_id, :payment_method, :name, :email, :phone, :city, :address, :subtotal, :tax, :delivery_fee, :discount, :promo_code, :total, 'pending', :payment_proof_url, :payment_status)`,
-      {
-        order_code: orderCode,
-        user_id: userId,
-        payment_method,
-        name: shipping.fullName,
-        email: shipping.email,
-        phone: shipping.phone,
-        city: shipping.city,
-        address: shipping.address,
-        subtotal: subtotalKs,
-        tax: taxKs,
-        delivery_fee: deliveryFeeKs,
-        discount: discountKs,
-        promo_code: promoCodeInput,
-        total: totalKs,
-        payment_proof_url: paymentProofUrl,
-        payment_status: paymentStatus,
-      }
-    );
-    const orderId = orderResult.insertId;
-
-    for (const item of lineItems) {
-      await connection.query(
-        `INSERT INTO order_items (order_id, medicine_id, qty, unit_price_ks, total_price_ks)
-         VALUES (:order_id, :medicine_id, :qty, :unit_price_ks, :total_price_ks)`,
-        { order_id: orderId, medicine_id: item.medicineId, qty: item.qty, unit_price_ks: item.unitPriceKs, total_price_ks: item.totalPriceKs }
-      );
-    }
-
-    // Release whatever this cart had reserved before deleting it — these
-    // holds are converting into a real stock_qty decrement above, not
-    // lapsing, but reserved_qty still needs to come back down or the stock
-    // stays phantom-held forever. Read the server's own cart rows here
-    // rather than trust the client-submitted `items` qtys, since those two
-    // should match but only one of them is authoritative.
-    const [cartRows] = await connection.query<RowDataPacket[]>(
-      "SELECT medicine_id, qty FROM cart_items WHERE user_id = :userId FOR UPDATE",
-      { userId }
-    );
-    for (const row of cartRows) {
-      await connection.query("UPDATE medicines SET reserved_qty = GREATEST(reserved_qty - :qty, 0) WHERE id = :id", {
-        qty: row.qty,
-        id: row.medicine_id,
-      });
-    }
-    await connection.query("DELETE FROM cart_items WHERE user_id = :userId", { userId });
-
-    await connection.commit();
-
-    return NextResponse.json(
-      {
-        success: true,
-        data: {
-          order_code: orderCode,
-          subtotal_ks: subtotalKs,
-          tax_ks: taxKs,
-          delivery_fee_ks: deliveryFeeKs,
-          discount_ks: discountKs,
-          total_ks: totalKs,
-          status: "pending",
-        },
-      },
-      { status: 201 }
-    );
+    const order = await createOrder({
+      userId,
+      paymentMethod: payment_method,
+      shipping,
+      items,
+      promoCodeInput,
+      paymentProofUrl,
+      clearCartForUserId: userId,
+    });
+    return NextResponse.json({ success: true, data: order }, { status: 201 });
   } catch (error) {
-    await connection.rollback();
     return NextResponse.json(
       { success: false, message: error instanceof Error ? error.message : "Could not place order" },
       { status: 400 }
     );
-  } finally {
-    connection.release();
   }
 }

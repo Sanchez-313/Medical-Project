@@ -129,13 +129,22 @@ export default function OrdersPage() {
                   <td className="px-6 py-5">
                     <span
                       className={`rounded-lg px-3 py-1 text-[10px] font-black uppercase ${
-                        order.source === "Storefront" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+                        order.source === "Storefront"
+                          ? "bg-purple-100 text-purple-700"
+                          : order.source === "Telegram"
+                          ? "bg-sky-100 text-sky-700"
+                          : "bg-blue-100 text-blue-700"
                       }`}
                     >
                       {order.source}
                     </span>
                   </td>
-                  <td className="px-6 py-5 text-sm text-slate-600">{order.customer_name ?? "Walk-in"}</td>
+                  <td className="px-6 py-5 text-sm text-slate-600">
+                    {order.customer_name ?? "Walk-in"}
+                    {order.telegram_username && (
+                      <span className="ml-1.5 text-xs font-semibold text-sky-500">@{order.telegram_username}</span>
+                    )}
+                  </td>
                   <td className="px-6 py-5 text-sm text-slate-600">{order.handled_by ?? "—"}</td>
                   <td className="px-6 py-5 text-sm font-black text-slate-900">
                     {Number(order.total_ks).toLocaleString()} MMK
@@ -168,7 +177,7 @@ export default function OrdersPage() {
                           Review Payment
                         </button>
                       )}
-                      {order.source === "Storefront" && NEXT_STATUS[order.status] && (
+                      {order.source !== "POS" && NEXT_STATUS[order.status] && (
                         <button
                           type="button"
                           disabled={busyId === order.id}
@@ -178,7 +187,7 @@ export default function OrdersPage() {
                           {NEXT_STATUS[order.status].label}
                         </button>
                       )}
-                      {order.source === "Storefront" && CANCELABLE.has(order.status) && (
+                      {order.source !== "POS" && CANCELABLE.has(order.status) && (
                         <button
                           type="button"
                           disabled={busyId === order.id}

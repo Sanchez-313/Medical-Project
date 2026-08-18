@@ -175,6 +175,13 @@ CREATE TABLE IF NOT EXISTS orders (
   -- money changed hands is the safer default.
   payment_proof_url TEXT NULL,
   payment_status ENUM('not_required', 'pending_review', 'confirmed', 'rejected') NOT NULL DEFAULT 'not_required',
+  -- NULL for every website order. Set only for orders placed through the
+  -- Telegram bot (see app/api/orders/telegram/route.ts) — those are all
+  -- attributed to one shared "Telegram Bot" service user_id (same pattern
+  -- as customer_queries.telegram_chat_id), so this is what actually
+  -- identifies which real customer/chat to contact about the order.
+  telegram_chat_id BIGINT NULL,
+  telegram_username VARCHAR(255) NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users(id),
   INDEX idx_orders_user (user_id),

@@ -24,14 +24,15 @@ export async function GET() {
   const [rows] = await pool.query<RowDataPacket[]>(
     `(SELECT s.id, s.sale_code AS code, 'POS' AS source, s.customer_name, s.payment_method,
              s.total_ks, s.status, s.created_at, u.name AS handled_by,
-             NULL AS payment_proof_url, 'not_required' AS payment_status,
+             NULL AS payment_proof_url, 'not_required' AS payment_status, NULL AS telegram_username,
              NULL AS shipping_phone, NULL AS shipping_city, NULL AS shipping_address
       FROM sales s
       JOIN users u ON u.id = s.handled_by_user_id)
      UNION ALL
-     (SELECT o.id, o.order_code AS code, 'Storefront' AS source, o.shipping_name AS customer_name, o.payment_method,
+     (SELECT o.id, o.order_code AS code, IF(o.telegram_chat_id IS NOT NULL, 'Telegram', 'Storefront') AS source,
+             o.shipping_name AS customer_name, o.payment_method,
              o.total_ks, o.status, o.created_at, NULL AS handled_by,
-             o.payment_proof_url, o.payment_status,
+             o.payment_proof_url, o.payment_status, o.telegram_username,
              o.shipping_phone, o.shipping_city, o.shipping_address
       FROM orders o)
      ORDER BY created_at DESC
