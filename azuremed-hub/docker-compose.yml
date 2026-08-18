@@ -1,0 +1,110 @@
+name: medical-project
+
+# NOTE: this file lives inside azuremed-hub/ (the main project folder), so
+# build contexts for its sibling services (backend, Admin-Dashboard) use
+# `../` to reach up to the repo root. azuremed-hub's own context is `.`.
+#
+# Run from this folder:
+#   docker compose --env-file .env.docker up --build
+# (`.env.docker` sits next to this file — not the default `.env` name, so
+# `--env-file` must be passed explicitly every time.)
+#
+# NOTE: the containerized `mysql` service is intentionally NOT defined here.
+# This machine's production data lives in a native Windows MySQL service
+# already listening on localhost:3306, so `backend` and `azuremed-hub`
+# below connect straight to that via `host.docker.internal` instead of
+# spinning up a separate, empty database in Docker. See README for details.
+
+services:
+  backend:
+    build: ../backend
+    restart: unless-stopped
+    environment:
+      APP_NAME: "Medical Backend"
+      APP_ENV: local
+      APP_KEY: ${APP_KEY}
+      TOKEN_TTL_MINUTES: "720"
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN}
+      DB_DRIVER: mysql
+      # host.docker.internal resolves to the Windows host from inside the
+      # container, reaching the native MySQL service on port 3306.
+      DB_HOST: host.docker.internal
+      DB_PORT: "3306"
+      DB_NAME: ${MYSQL_BACKEND_DB}
+      DB_USER: root
+      DB_PASS: ${MYSQL_ROOT_PASSWORD}
+      DB_CHARSET: utf8mb4
+    ports:
+      - "8000:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks: [medical-net]
+
+  azuremed-hub:
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_RECAPTCHA_SITE_KEY: ${NEXT_PUBLIC_RECAPTCHA_SITE_KEY}
+        NEXT_PUBLIC_TELEGRAM_BOT_USERNAME: ${NEXT_PUBLIC_TELEGRAM_BOT_USERNAME}
+    restart: unless-stopped
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: "3306"
+      DB_USER: root
+      DB_PASS: ${MYSQL_ROOT_PASSWORD}
+      DB_NAME: ${MYSQL_HUB_DB}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      NEXTAUTH_URL: ${NEXTAUTH_URL}
+      GOOGLE_AI_ENDPOINT: ${GOOGLE_AI_ENDPOINT}
+      GOOGLE_AI_API_KEY: ${GOOGLE_AI_API_KEY}
+      NEXT_PUBLIC_RECAPTCHA_SITE_KEY: ${NEXT_PUBLIC_RECAPTCHA_SITE_KEY}
+      RECAPTCHA_SECRET_KEY: ${RECAPTCHA_SECRET_KEY}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      SMTP_FROM: ${SMTP_FROM}
+      BOT_API_SECRET: ${BOT_API_SECRET}
+      BOT_TOKEN: ${BOT_TOKEN}
+      NEXT_PUBLIC_TELEGRAM_BOT_USERNAME: ${NEXT_PUBLIC_TELEGRAM_BOT_USERNAME}
+    ports:
+      - "3000:3000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      # User-uploaded files (payment proofs, AI detections, medicine images)
+      # are written at runtime to public/uploads. Without this bind mount
+      # they'd live only in the container's writable layer and vanish on
+      # every rebuild/recreate — this shares the host's public/uploads dir
+      # instead, so uploads persist and are visible on both sides.
+      - ./public/uploads:/app/public/uploads
+    networks: [medical-net]
+
+  admin-dashboard:
+    build:
+      context: ../Admin-Dashboard
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+        VITE_ADMIN_EMAIL: ${VITE_ADMIN_EMAIL}
+        VITE_ADMIN_PASSWORD: ${VITE_ADMIN_PASSWORD}
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on: [backend]
+    networks: [medical-net]
+
+  bot:
+    build: ./bot
+    restart: unless-stopped
+    environment:
+      BOT_TOKEN: ${BOT_TOKEN}
+      # Internal Docker DNS name, not localhost — this runs server-side
+      # inside the compose network, unlike the browser-side Admin-Dashboard.
+      API_BASE_URL: http://azuremed-hub:3000
+      BOT_API_SECRET: ${BOT_API_SECRET}
+    depends_on: [azuremed-hub]
+    networks: [medical-net]
+
+networks:
+  medical-net:
+    driver: bridge

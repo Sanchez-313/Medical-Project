@@ -1,0 +1,17 @@
+node_modules
+.next
+.env
+.env.local
+*.tsbuildinfo
+public/uploads
+
+# bot/ (medicalbot Telegram bot — see bot/README.md)
+bot/.env
+bot/__pycache__/
+bot/.bot.lock
+
+# Local database exports and environment snapshots contain customer data
+# and secrets. Keep deployment configuration in Railway Variables instead.
+/azuremed_hub*.sql
+/doc_*.env
+/doc_*.env.*

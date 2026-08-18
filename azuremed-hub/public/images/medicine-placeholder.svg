@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" role="img" aria-labelledby="title description">
+  <title id="title">Medicine image unavailable</title>
+  <desc id="description">A simple medicine package placeholder</desc>
+  <rect width="640" height="480" rx="32" fill="#eff6ff"/>
+  <g transform="translate(220 88)">
+    <rect x="0" y="46" width="200" height="230" rx="24" fill="#fff" stroke="#93c5fd" stroke-width="12"/>
+    <path d="M58 46V14h84v32" fill="none" stroke="#3b82f6" stroke-width="12" stroke-linejoin="round"/>
+    <path d="M100 104v112M44 160h112" stroke="#2563eb" stroke-width="24" stroke-linecap="round"/>
+  </g>
+  <text x="320" y="410" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#475569">Image unavailable</text>
+</svg>
