@@ -143,7 +143,11 @@ info) — don't commit it. Delete it once the restore succeeds.
 ## 8. Verify
 
 - Visit the web service's domain — storefront should load, showing your
-  real 123 products.
+  real product catalog (88 from `scripts/fullCatalog.js`'s seed, plus
+  whatever you've added by hand since via Admin → Add Product — check
+  `SELECT COUNT(*) FROM medicines WHERE is_active = 1` if you want the
+  exact current count rather than trusting a number written down here,
+  which will drift the moment you add or remove a product).
 - Log in as `dravenkai2@gmail.com` — should reach `/admin` with all your
   data intact.
 - Open Telegram, message the bot, `/start` — categories should match the

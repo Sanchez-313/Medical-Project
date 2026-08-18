@@ -7,13 +7,24 @@ server-side Google AI image-detection proxy.
 
 ## Setup
 
+Plain MySQL (`mysql2/promise`, see `config/db.js`) — no Prisma, no ORM
+migrations. `config/azuremed_schema.sql` is the canonical schema, applied
+idempotently by `scripts/applySchema.js` (safe to re-run any time the
+schema changes; it only adds what's missing).
+
 ```bash
-cp .env.example .env       # fill in DATABASE_URL, NEXTAUTH_SECRET, GOOGLE_AI_*
+cp .env.example .env       # fill in DB_HOST/DB_PORT/DB_USER/DB_PASS/DB_NAME,
+                            # NEXTAUTH_SECRET, GOOGLE_AI_* (optional), etc.
 npm install
-npx prisma migrate dev --name init
-npm run prisma:seed        # creates owner@azuremedhub.com / admin@... / agent@...
+npm run db:schema          # creates every table
+npm run db:seed            # loads the real 88-product catalog (no real
+                            # customer/order data — see scripts/seed.js)
 npm run dev
 ```
+
+There's no seeded login by default — register a real account at `/register`
+and promote it to `admin` directly in the `users` table (`UPDATE users SET
+role = 'admin' WHERE email = '...'`) to reach `/admin`.
 
 ## What's implemented vs. left as follow-up
 

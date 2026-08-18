@@ -6,6 +6,10 @@ node_modules
 *.tsbuildinfo
 public/uploads
 
+# scripts/migrateData.js dump output — contains real customer/order/user
+# data (password hashes, PII). See DEPLOYMENT.md's migration step.
+*_dump.sql
+
 # bot/ (medicalbot Telegram bot — see bot/README.md)
 bot/.env
 bot/__pycache__/
